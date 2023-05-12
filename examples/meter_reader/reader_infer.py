@@ -124,9 +124,7 @@ def parse_args():
 def is_pic(img_name):
     valid_suffix = ['JPEG', 'jpeg', 'JPG', 'jpg', 'BMP', 'bmp', 'PNG', 'png']
     suffix = img_name.split('.')[-1]
-    if suffix not in valid_suffix:
-        return False
-    return True
+    return suffix in valid_suffix
 
 
 class MeterReader:
@@ -140,11 +138,9 @@ class MeterReader:
 
     def __init__(self, detector_dir, segmenter_dir):
         if not osp.exists(detector_dir):
-            raise Exception("Model path {} does not exist".format(
-                detector_dir))
+            raise Exception(f"Model path {detector_dir} does not exist")
         if not osp.exists(segmenter_dir):
-            raise Exception("Model path {} does not exist".format(
-                segmenter_dir))
+            raise Exception(f"Model path {segmenter_dir} does not exist")
         self.detector = pdx.load_model(detector_dir)
         self.segmenter = pdx.load_model(segmenter_dir)
         # Because we will resize images with (METER_SHAPE, METER_SHAPE) before fed into the segmenter,
@@ -178,13 +174,10 @@ class MeterReader:
             im = im_file.copy()
         # Get detection results
         det_results = self.detector.predict(im)
-        # Filter bbox whose score is lower than score_threshold
-        filtered_results = list()
-        for res in det_results:
-            if res['score'] > score_threshold:
-                filtered_results.append(res)
-
-        resized_meters = list()
+        filtered_results = [
+            res for res in det_results if res['score'] > score_threshold
+        ]
+        resized_meters = []
         for res in filtered_results:
             # Crop the bbox area
             xmin, ymin, w, h = res['bbox']
@@ -209,12 +202,10 @@ class MeterReader:
             resized_meters.append(meter_meter)
 
         meter_num = len(resized_meters)
-        seg_results = list()
+        seg_results = []
         for i in range(0, meter_num, seg_batch_size):
             im_size = min(meter_num, i + seg_batch_size)
-            meter_images = list()
-            for j in range(i, im_size):
-                meter_images.append(resized_meters[j])
+            meter_images = [resized_meters[j] for j in range(i, im_size)]
             # Segment scales and point in each meter area
             result = self.segmenter.batch_predict(
                 transforms=self.seg_transforms, img_file_list=meter_images)
@@ -226,24 +217,24 @@ class MeterReader:
                                                        kernel)
             seg_results.extend(result)
 
-        results = list()
+        results = []
         # The postprocess are done to get the point location relative to the scales
-        for i, seg_result in enumerate(seg_results):
+        for seg_result in seg_results:
             result = self.read_process(seg_result['label_map'])
             results.append(result)
 
         # Provide a digital readout according to point location relative to the scales
-        meter_values = list()
+        meter_values = []
         for i, result in enumerate(results):
             if result['scale_num'] > TYPE_THRESHOLD:
                 value = result['scales'] * METER_CONFIG[0]['scale_value']
             else:
                 value = result['scales'] * METER_CONFIG[1]['scale_value']
             meter_values.append(value)
-            print("-- Meter {} -- result: {} --\n".format(i, value))
+            print(f"-- Meter {i} -- result: {value} --\n")
 
         # Visualize the results
-        visual_results = list()
+        visual_results = []
         for i, res in enumerate(filtered_results):
             # Use `score` to represent the meter value
             res['score'] = meter_values[i]
@@ -264,11 +255,7 @@ class MeterReader:
         scale_data, pointer_data = self.convert_1d_data(line_images)
         # Fliter scale data whose value is lower than the mean value
         self.scale_mean_filtration(scale_data)
-        # Get the number of scales，the pointer location relative to the scales, the ratio between
-        # the distance from the pointer to the starting scale and distance from the ending scale to the
-        # starting scale.
-        result = self.get_meter_reader(scale_data, pointer_data)
-        return result
+        return self.get_meter_reader(scale_data, pointer_data)
 
     def creat_line_image(self, meter_image):
         """Convert the circular meter into a rectangular meter.
@@ -355,62 +342,58 @@ class MeterReader:
         one_scale_end = 0
         one_pointer_start = 0
         one_pointer_end = 0
-        scale_location = list()
+        scale_location = []
         pointer_location = 0
         for i in range(LINE_WIDTH - 1):
-            if scale_data[i] > 0 and scale_data[i + 1] > 0:
-                if scale_flag == False:
-                    one_scale_start = i
-                    scale_flag = True
-            if scale_flag:
-                if scale_data[i] == 0 and scale_data[i + 1] == 0:
-                    one_scale_end = i - 1
-                    one_scale_location = (one_scale_start + one_scale_end) / 2
-                    scale_location.append(one_scale_location)
-                    one_scale_start = 0
-                    one_scale_end = 0
-                    scale_flag = False
-            if pointer_data[i] > 0 and pointer_data[i + 1] > 0:
-                if pointer_flag == False:
-                    one_pointer_start = i
-                    pointer_flag = True
-            if pointer_flag:
-                if pointer_data[i] == 0 and pointer_data[i + 1] == 0:
-                    one_pointer_end = i - 1
-                    pointer_location = (
-                        one_pointer_start + one_pointer_end) / 2
-                    one_pointer_start = 0
-                    one_pointer_end = 0
-                    pointer_flag = False
+            if scale_data[i] > 0 and scale_data[i + 1] > 0 and scale_flag == False:
+                one_scale_start = i
+                scale_flag = True
+            if scale_flag and scale_data[i] == 0 and scale_data[i + 1] == 0:
+                one_scale_end = i - 1
+                one_scale_location = (one_scale_start + one_scale_end) / 2
+                scale_location.append(one_scale_location)
+                one_scale_start = 0
+                one_scale_end = 0
+                scale_flag = False
+            if (
+                pointer_data[i] > 0
+                and pointer_data[i + 1] > 0
+                and pointer_flag == False
+            ):
+                one_pointer_start = i
+                pointer_flag = True
+            if pointer_flag and pointer_data[i] == 0 and pointer_data[i + 1] == 0:
+                one_pointer_end = i - 1
+                pointer_location = (
+                    one_pointer_start + one_pointer_end) / 2
+                one_pointer_start = 0
+                one_pointer_end = 0
+                pointer_flag = False
 
         scale_num = len(scale_location)
         scales = -1
         ratio = -1
         if scale_num > 0:
             for i in range(scale_num - 1):
-                if scale_location[
-                        i] <= pointer_location and pointer_location < scale_location[
-                            i + 1]:
+                if scale_location[i] <= pointer_location < scale_location[i + 1]:
                     scales = i + (pointer_location - scale_location[i]) / (
                         scale_location[i + 1] - scale_location[i] + 1e-05) + 1
             ratio = (pointer_location - scale_location[0]) / (
                 scale_location[scale_num - 1] - scale_location[0] + 1e-05)
-        result = {'scale_num': scale_num, 'scales': scales, 'ratio': ratio}
-        return result
+        return {'scale_num': scale_num, 'scales': scales, 'ratio': ratio}
 
 
 def infer(args):
-    image_lists = list()
+    image_lists = []
     if args.image is not None:
         if not osp.exists(args.image):
-            raise Exception("Image {} does not exist.".format(args.image))
+            raise Exception(f"Image {args.image} does not exist.")
         if not is_pic(args.image):
-            raise Exception("{} is not a picture.".format(args.image))
+            raise Exception(f"{args.image} is not a picture.")
         image_lists.append(args.image)
     elif args.image_dir is not None:
         if not osp.exists(args.image_dir):
-            raise Exception("Directory {} does not exist.".format(
-                args.image_dir))
+            raise Exception(f"Directory {args.image_dir} does not exist.")
         for im_file in os.listdir(args.image_dir):
             if not is_pic(im_file):
                 continue
@@ -418,7 +401,7 @@ def infer(args):
             image_lists.append(im_file)
 
     meter_reader = MeterReader(args.detector_dir, args.segmenter_dir)
-    if len(image_lists) > 0:
+    if image_lists:
         for im_file in image_lists:
             meter_reader.predict(im_file, args.save_dir, args.use_erode,
                                  args.erode_kernel, args.score_threshold,

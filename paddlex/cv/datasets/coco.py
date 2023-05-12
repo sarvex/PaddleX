@@ -67,8 +67,8 @@ class CocoDetection(VOCDetection):
             buffer_size=buffer_size,
             parallel_method=parallel_method,
             shuffle=shuffle)
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
         self._epoch = 0
 
         coco = COCO(ann_file)
@@ -80,8 +80,9 @@ class CocoDetection(VOCDetection):
             coco.loadCats(catid)[0]['name']: clsid
             for catid, clsid in catid2clsid.items()
         })
-        for label, cid in sorted(cname2cid.items(), key=lambda d: d[1]):
-            self.labels.append(label)
+        self.labels.extend(
+            label for label, cid in sorted(cname2cid.items(), key=lambda d: d[1])
+        )
         logging.info("Starting to read file list from dataset...")
         for img_id in img_ids:
             img_anno = coco.loadImgs(img_id)[0]
@@ -105,8 +106,8 @@ class CocoDetection(VOCDetection):
                     bboxes.append(inst)
                 else:
                     logging.warning(
-                        "Found an invalid bbox in annotations: im_id: {}, area: {} x1: {}, y1: {}, x2: {}, y2: {}."
-                        .format(img_id, float(inst['area']), x1, y1, x2, y2))
+                        f"Found an invalid bbox in annotations: im_id: {img_id}, area: {float(inst['area'])} x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}."
+                    )
             num_bbox = len(bboxes)
             gt_bbox = np.zeros((num_bbox, 4), dtype=np.float32)
             gt_class = np.zeros((num_bbox, 1), dtype=np.int32)
@@ -141,8 +142,7 @@ class CocoDetection(VOCDetection):
 
             coco_rec = (im_info, label_info)
             self.file_list.append([im_fname, coco_rec])
-        if not len(self.file_list) > 0:
-            raise Exception('not found any coco record in %s' % (ann_file))
-        logging.info("{} samples in file {}".format(
-            len(self.file_list), ann_file))
+        if not self.file_list:
+            raise Exception(f'not found any coco record in {ann_file}')
+        logging.info(f"{len(self.file_list)} samples in file {ann_file}")
         self.num_samples = len(self.file_list)

@@ -27,27 +27,25 @@ def seconds_to_hms(seconds):
     h = math.floor(seconds / 3600)
     m = math.floor((seconds - h * 3600) / 60)
     s = int(seconds - h * 3600 - m * 60)
-    hms_str = "{}:{}:{}".format(h, m, s)
-    return hms_str
+    return f"{h}:{m}:{s}"
 
 
 def get_encoding(path):
-    f = open(path, 'rb')
-    data = f.read()
-    file_encoding = chardet.detect(data).get('encoding')
-    f.close()
+    with open(path, 'rb') as f:
+        data = f.read()
+        file_encoding = chardet.detect(data).get('encoding')
     return file_encoding
 
 
 def get_single_card_bs(batch_size):
     card_num = paddlex.env_info['num']
-    place = paddlex.env_info['place']
     if batch_size % card_num == 0:
         return int(batch_size // card_num)
     elif batch_size == 1:
         # Evaluation of detection task only supports single card with batch size 1
         return batch_size
     else:
+        place = paddlex.env_info['place']
         raise Exception("Please support correct batch_size, \
                         which can be divided by available cards({}) in {}"
                         .format(card_num, place))
@@ -60,7 +58,7 @@ def dict2str(dict_input):
             v = '{:8.6f}'.format(float(v))
         except:
             pass
-        out = out + '{}={}, '.format(k, v)
+        out = f'{out}{k}={v}, '
     return out.strip(', ')
 
 
@@ -77,9 +75,7 @@ def path_normalization(path):
 def is_pic(img_name):
     valid_suffix = ['JPEG', 'jpeg', 'JPG', 'jpg', 'BMP', 'bmp', 'PNG', 'png']
     suffix = img_name.split('.')[-1]
-    if suffix not in valid_suffix:
-        return False
-    return True
+    return suffix in valid_suffix
 
 
 class MyEncoder(json.JSONEncoder):
@@ -107,27 +103,24 @@ class EarlyStop:
     def __call__(self, current_score):
         if self.score is None:
             self.score = current_score
-            return False
         elif current_score > self.max:
             self.counter = 0
             self.score = current_score
             self.max = current_score
-            return False
-        else:
-            if (abs(self.score - current_score) < self.thresh or
+        elif (abs(self.score - current_score) < self.thresh or
                     current_score < self.score):
-                self.counter += 1
-                self.score = current_score
-                logging.debug("EarlyStopping: %i / %i" %
-                              (self.counter, self.patience))
-                if self.counter >= self.patience:
-                    logging.info("EarlyStopping: Stop training")
-                    return True
-                return False
-            else:
-                self.counter = 0
-                self.score = current_score
-                return False
+            self.counter += 1
+            self.score = current_score
+            logging.debug("EarlyStopping: %i / %i" %
+                          (self.counter, self.patience))
+            if self.counter >= self.patience:
+                logging.info("EarlyStopping: Stop training")
+                return True
+        else:
+            self.counter = 0
+            self.score = current_score
+
+        return False
 
 
 class DisablePrint(object):

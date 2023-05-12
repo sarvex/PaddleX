@@ -78,8 +78,7 @@ def bg_replace(label_map, img, bg):
     h, w, _ = img.shape
     bg = cv2.resize(bg, (w, h))
     label_map = np.repeat(label_map[:, :, np.newaxis], 3, axis=2)
-    comb = (label_map * img + (1 - label_map) * bg).astype(np.uint8)
-    return comb
+    return (label_map * img + (1 - label_map) * bg).astype(np.uint8)
 
 
 def recover(img, im_info):

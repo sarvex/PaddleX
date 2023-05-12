@@ -53,10 +53,9 @@ def confusion_matrix(pred, label, num_classes, ignore_index=255):
     pred = paddle.masked_select(pred, mask)
 
     cat_matrix = num_classes * label + pred
-    conf_mat = paddle.histogram(
+    return paddle.histogram(
         cat_matrix,
         bins=num_classes * num_classes,
         min=0,
-        max=num_classes * num_classes - 1).reshape([num_classes, num_classes])
-
-    return conf_mat
+        max=num_classes * num_classes - 1,
+    ).reshape([num_classes, num_classes])

@@ -59,13 +59,13 @@ class Compose(ClsTransform):
         if isinstance(im, np.ndarray):
             if len(im.shape) != 3:
                 raise Exception(
-                    "im should be 3-dimension, but now is {}-dimensions".
-                    format(len(im.shape)))
+                    f"im should be 3-dimension, but now is {len(im.shape)}-dimensions"
+                )
         else:
             try:
                 im = cv2.imread(im).astype('float32')
             except:
-                raise TypeError('Can\'t read The image file {}!'.format(im))
+                raise TypeError(f"Can\'t read The image file {im}!")
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         for op in self.transforms:
             outputs = op(im, label)
@@ -82,8 +82,8 @@ class Compose(ClsTransform):
         for aug in augmenters:
             if type(aug).__name__ in transform_names:
                 print(
-                    "{} is already in ComposedTransforms, need to remove it from add_augmenters().".
-                    format(type(aug).__name__))
+                    f"{type(aug).__name__} is already in ComposedTransforms, need to remove it from add_augmenters()."
+                )
         self.transforms = augmenters + self.transforms
 
 
@@ -116,10 +116,7 @@ class Normalize(ClsTransform):
         mean = np.array(self.mean)[np.newaxis, np.newaxis, :]
         std = np.array(self.std)[np.newaxis, np.newaxis, :]
         im = normalize(im, mean, std)
-        if label is None:
-            return (im, )
-        else:
-            return (im, label)
+        return (im, ) if label is None else (im, label)
 
 
 class ResizeByShort(ClsTransform):
@@ -163,10 +160,7 @@ class ResizeByShort(ClsTransform):
             im, (resized_width, resized_height),
             interpolation=cv2.INTER_LINEAR)
 
-        if label is None:
-            return (im, )
-        else:
-            return (im, label)
+        return (im, ) if label is None else (im, label)
 
 
 class CenterCrop(ClsTransform):
@@ -193,10 +187,7 @@ class CenterCrop(ClsTransform):
                    当label不为空时，返回的tuple为(im, label)，分别对应图像np.ndarray数据、图像类别id。
         """
         im = center_crop(im, self.crop_size)
-        if label is None:
-            return (im, )
-        else:
-            return (im, label)
+        return (im, ) if label is None else (im, label)
 
 
 class ArrangeClassifier(ClsTransform):
@@ -226,11 +217,7 @@ class ArrangeClassifier(ClsTransform):
                 图像类别id；当mode为'test'或'quant'时，返回(im, )，对应图像np.ndarray数据。
         """
         im = permute(im, False).astype('float32')
-        if self.mode == 'train' or self.mode == 'eval':
-            outputs = (im, label)
-        else:
-            outputs = (im, )
-        return outputs
+        return (im, label) if self.mode in ['train', 'eval'] else (im, )
 
 
 class ComposedClsTransforms(Compose):
@@ -268,9 +255,7 @@ class ComposedClsTransforms(Compose):
                 "In classifier model, width and height should be multiple of 32, e.g 224、256、320...., please modify your parameter `crop_size`"
             )
 
-        if mode == 'train':
-            pass
-        else:
+        if mode != 'train':
             # 验证/预测时的transforms
             transforms = [
                 ResizeByShort(short_size=int(width * 1.14)),

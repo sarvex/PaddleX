@@ -29,20 +29,18 @@ class X2COCO(object):
         self.annotations_list = []
 
     def generate_categories_field(self, label, labels_list):
-        category = {}
-        category["supercategory"] = "component"
-        category["id"] = len(labels_list) + 1
-        category["name"] = label
-        return category
+        return {
+            "supercategory": "component",
+            "id": len(labels_list) + 1,
+            "name": label,
+        }
 
     def generate_rectangle_anns_field(self, points, label, image_id, object_id,
                                       label_to_num):
-        annotation = {}
         seg_points = np.asarray(points).copy()
         seg_points[1, :] = np.asarray(points)[2, :]
         seg_points[2, :] = np.asarray(points)[1, :]
-        annotation["segmentation"] = [list(seg_points.flatten())]
-        annotation["iscrowd"] = 0
+        annotation = {"segmentation": [list(seg_points.flatten())], "iscrowd": 0}
         annotation["image_id"] = image_id + 1
         annotation["bbox"] = list(
             map(float, [
@@ -69,8 +67,8 @@ class X2COCO(object):
         new_image_dir = osp.join(dataset_save_dir, "JPEGImages")
         if osp.exists(new_image_dir):
             raise Exception(
-                "The directory {} is already exist, please remove the directory first".
-                format(new_image_dir))
+                f"The directory {new_image_dir} is already exist, please remove the directory first"
+            )
         os.makedirs(new_image_dir)
         for img_name in os.listdir(image_dir):
             if is_pic(img_name):
@@ -79,14 +77,14 @@ class X2COCO(object):
                     osp.join(new_image_dir, img_name))
         # Convert the json files.
         self.parse_json(new_image_dir, json_dir)
-        coco_data = {}
-        coco_data["images"] = self.images_list
-        coco_data["categories"] = self.categories_list
-        coco_data["annotations"] = self.annotations_list
+        coco_data = {
+            "images": self.images_list,
+            "categories": self.categories_list,
+            "annotations": self.annotations_list,
+        }
         json_path = osp.join(dataset_save_dir, "annotations.json")
-        f = open(json_path, "w")
-        json.dump(coco_data, f, indent=4, cls=MyEncoder)
-        f.close()
+        with open(json_path, "w") as f:
+            json.dump(coco_data, f, indent=4, cls=MyEncoder)
 
 
 class LabelMe2COCO(X2COCO):
@@ -97,10 +95,11 @@ class LabelMe2COCO(X2COCO):
         super(LabelMe2COCO, self).__init__()
 
     def generate_images_field(self, json_info, image_file, image_id):
-        image = {}
-        image["height"] = json_info["imageHeight"]
-        image["width"] = json_info["imageWidth"]
-        image["id"] = image_id + 1
+        image = {
+            "height": json_info["imageHeight"],
+            "width": json_info["imageWidth"],
+            "id": image_id + 1,
+        }
         json_img_path = path_normalization(json_info["imagePath"])
         json_info["imagePath"] = osp.join(
             osp.split(json_img_path)[0], image_file)
@@ -109,9 +108,10 @@ class LabelMe2COCO(X2COCO):
 
     def generate_polygon_anns_field(self, height, width, points, label,
                                     image_id, object_id, label_to_num):
-        annotation = {}
-        annotation["segmentation"] = [list(np.asarray(points).flatten())]
-        annotation["iscrowd"] = 0
+        annotation = {
+            "segmentation": [list(np.asarray(points).flatten())],
+            "iscrowd": 0,
+        }
         annotation["image_id"] = image_id + 1
         annotation["bbox"] = list(
             map(float, self.get_bbox(height, width, points)))
@@ -146,13 +146,13 @@ class LabelMe2COCO(X2COCO):
         label_to_num = {}
         for img_file in os.listdir(img_dir):
             img_name_part = osp.splitext(img_file)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(img_dir, img_file))
                 continue
             image_id = image_id + 1
             with open(json_file, mode='r', \
-                      encoding=get_encoding(json_file)) as j:
+                                  encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 img_info = self.generate_images_field(json_info, img_file,
                                                       image_id)
@@ -162,7 +162,7 @@ class LabelMe2COCO(X2COCO):
                     label = shapes["label"]
                     if label not in labels_list:
                         self.categories_list.append( \
-                            self.generate_categories_field(label, labels_list))
+                                self.generate_categories_field(label, labels_list))
                         labels_list.append(label)
                         label_to_num[label] = len(labels_list)
                     points = shapes["points"]
@@ -173,7 +173,7 @@ class LabelMe2COCO(X2COCO):
                                 json_info["imageHeight"], json_info[
                                     "imageWidth"], points, label, image_id,
                                 object_id, label_to_num))
-                    if p_type == "rectangle":
+                    elif p_type == "rectangle":
                         points.append([points[0][0], points[1][1]])
                         points.append([points[1][0], points[0][1]])
                         self.annotations_list.append(
@@ -190,26 +190,30 @@ class EasyData2COCO(X2COCO):
         super(EasyData2COCO, self).__init__()
 
     def generate_images_field(self, img_path, image_id):
-        image = {}
         img = cv2.imread(img_path)
-        image["height"] = img.shape[0]
-        image["width"] = img.shape[1]
-        image["id"] = image_id + 1
+        image = {"height": img.shape[0], "width": img.shape[1], "id": image_id + 1}
         img_path = path_normalization(img_path)
         image["file_name"] = osp.split(img_path)[-1]
         return image
 
     def generate_polygon_anns_field(self, points, segmentation, label,
                                     image_id, object_id, label_to_num):
-        annotation = {}
-        annotation["segmentation"] = segmentation
-        annotation["iscrowd"] = 1 if len(segmentation) > 1 else 0
-        annotation["image_id"] = image_id + 1
-        annotation["bbox"] = list(
-            map(float, [
-                points[0][0], points[0][1], points[1][0] - points[0][0],
-                points[1][1] - points[0][1]
-            ]))
+        annotation = {
+            "segmentation": segmentation,
+            "iscrowd": 1 if len(segmentation) > 1 else 0,
+            "image_id": image_id + 1,
+            "bbox": list(
+                map(
+                    float,
+                    [
+                        points[0][0],
+                        points[0][1],
+                        points[1][0] - points[0][0],
+                        points[1][1] - points[0][1],
+                    ],
+                )
+            ),
+        }
         annotation["area"] = annotation["bbox"][2] * annotation["bbox"][3]
         annotation["category_id"] = label_to_num[label]
         annotation["id"] = object_id + 1
@@ -223,13 +227,13 @@ class EasyData2COCO(X2COCO):
         label_to_num = {}
         for img_file in os.listdir(img_dir):
             img_name_part = osp.splitext(img_file)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(img_dir, img_file))
                 continue
             image_id = image_id + 1
             with open(json_file, mode='r', \
-                      encoding=get_encoding(json_file)) as j:
+                                  encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 img_info = self.generate_images_field(
                     osp.join(img_dir, img_file), image_id)
@@ -239,7 +243,7 @@ class EasyData2COCO(X2COCO):
                     label = shapes["name"]
                     if label not in labels_list:
                         self.categories_list.append( \
-                            self.generate_categories_field(label, labels_list))
+                                self.generate_categories_field(label, labels_list))
                         labels_list.append(label)
                         label_to_num[label] = len(labels_list)
                     points = [[shapes["x1"], shapes["y1"]],
@@ -252,10 +256,10 @@ class EasyData2COCO(X2COCO):
                                 points, label, image_id, object_id,
                                 label_to_num))
                     else:
-                        mask_dict = {}
-                        mask_dict[
-                            'size'] = [img_info["height"], img_info["width"]]
-                        mask_dict['counts'] = shapes['mask'].encode()
+                        mask_dict = {
+                            'size': [img_info["height"], img_info["width"]],
+                            'counts': shapes['mask'].encode(),
+                        }
                         mask = decode(mask_dict)
                         contours, hierarchy = cv2.findContours(
                             (mask).astype(np.uint8), cv2.RETR_TREE,
@@ -279,19 +283,21 @@ class JingLing2COCO(X2COCO):
         super(JingLing2COCO, self).__init__()
 
     def generate_images_field(self, json_info, image_id):
-        image = {}
-        image["height"] = json_info["size"]["height"]
-        image["width"] = json_info["size"]["width"]
-        image["id"] = image_id + 1
+        image = {
+            "height": json_info["size"]["height"],
+            "width": json_info["size"]["width"],
+            "id": image_id + 1,
+        }
         json_info["path"] = path_normalization(json_info["path"])
         image["file_name"] = osp.split(json_info["path"])[-1]
         return image
 
     def generate_polygon_anns_field(self, height, width, points, label,
                                     image_id, object_id, label_to_num):
-        annotation = {}
-        annotation["segmentation"] = [list(np.asarray(points).flatten())]
-        annotation["iscrowd"] = 0
+        annotation = {
+            "segmentation": [list(np.asarray(points).flatten())],
+            "iscrowd": 0,
+        }
         annotation["image_id"] = image_id + 1
         annotation["bbox"] = list(
             map(float, self.get_bbox(height, width, points)))
@@ -326,13 +332,13 @@ class JingLing2COCO(X2COCO):
         label_to_num = {}
         for img_file in os.listdir(img_dir):
             img_name_part = osp.splitext(img_file)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(img_dir, img_file))
                 continue
             image_id = image_id + 1
             with open(json_file, mode='r', \
-                      encoding=get_encoding(json_file)) as j:
+                                  encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 img_info = self.generate_images_field(json_info, image_id)
                 self.images_list.append(img_info)
@@ -341,39 +347,36 @@ class JingLing2COCO(X2COCO):
                     if i == 0:
                         if "polygon" in obj:
                             anns_type = "polygon"
-                    else:
-                        if anns_type not in obj:
-                            continue
+                    elif anns_type not in obj:
+                        continue
                     object_id = object_id + 1
                     label = obj["name"]
                     if label not in labels_list:
                         self.categories_list.append( \
-                            self.generate_categories_field(label, labels_list))
+                                self.generate_categories_field(label, labels_list))
                         labels_list.append(label)
                         label_to_num[label] = len(labels_list)
-                    if anns_type == "polygon":
-                        points = []
-                        for j in range(int(len(obj["polygon"]) / 2.0)):
-                            points.append([
-                                obj["polygon"]["x" + str(j + 1)],
-                                obj["polygon"]["y" + str(j + 1)]
-                            ])
+                    if anns_type == "bndbox":
+                        points = [
+                            [obj["bndbox"]["xmin"], obj["bndbox"]["ymin"]],
+                            [obj["bndbox"]["xmax"], obj["bndbox"]["ymax"]],
+                            [obj["bndbox"]["xmin"], obj["bndbox"]["ymax"]],
+                            [obj["bndbox"]["xmax"], obj["bndbox"]["ymin"]],
+                        ]
+                        self.annotations_list.append(
+                            self.generate_rectangle_anns_field(
+                                points, label, image_id, object_id,
+                                label_to_num))
+                    elif anns_type == "polygon":
+                        points = [
+                            [
+                                obj["polygon"][f"x{str(j + 1)}"],
+                                obj["polygon"][f"y{str(j + 1)}"],
+                            ]
+                            for j in range(int(len(obj["polygon"]) / 2.0))
+                        ]
                         self.annotations_list.append(
                             self.generate_polygon_anns_field(
                                 json_info["size"]["height"], json_info["size"][
                                     "width"], points, label, image_id,
                                 object_id, label_to_num))
-                    if anns_type == "bndbox":
-                        points = []
-                        points.append(
-                            [obj["bndbox"]["xmin"], obj["bndbox"]["ymin"]])
-                        points.append(
-                            [obj["bndbox"]["xmax"], obj["bndbox"]["ymax"]])
-                        points.append(
-                            [obj["bndbox"]["xmin"], obj["bndbox"]["ymax"]])
-                        points.append(
-                            [obj["bndbox"]["xmax"], obj["bndbox"]["ymin"]])
-                        self.annotations_list.append(
-                            self.generate_rectangle_anns_field(
-                                points, label, image_id, object_id,
-                                label_to_num))

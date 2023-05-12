@@ -70,8 +70,8 @@ class CocoDetection(VOCDetection):
         self.batch_transforms = None
         self.num_workers = get_num_workers(num_workers)
         self.shuffle = shuffle
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
 
         coco = COCO(ann_file)
         self.coco_gt = coco
@@ -107,9 +107,8 @@ class CocoDetection(VOCDetection):
                     bboxes.append(inst)
                 else:
                     logging.warning(
-                        "Found an invalid bbox in annotations: "
-                        "im_id: {}, area: {} x1: {}, y1: {}, x2: {}, y2: {}."
-                        .format(img_id, float(inst['area']), x1, y1, x2, y2))
+                        f"Found an invalid bbox in annotations: im_id: {img_id}, area: {float(inst['area'])} x1: {x1}, y1: {y1}, x2: {x2}, y2: {y2}."
+                    )
             num_bbox = len(bboxes)
             gt_bbox = np.zeros((num_bbox, 4), dtype=np.float32)
             gt_class = np.zeros((num_bbox, 1), dtype=np.int32)
@@ -160,10 +159,9 @@ class CocoDetection(VOCDetection):
         else:
             self.num_max_boxes = max(self.num_max_boxes, len(instances))
 
-        if not len(self.file_list) > 0:
-            raise Exception('not found any coco record in %s' % ann_file)
-        logging.info("{} samples in file {}".format(
-            len(self.file_list), ann_file))
+        if not self.file_list:
+            raise Exception(f'not found any coco record in {ann_file}')
+        logging.info(f"{len(self.file_list)} samples in file {ann_file}")
         self.num_samples = len(self.file_list)
 
         self._epoch = 0

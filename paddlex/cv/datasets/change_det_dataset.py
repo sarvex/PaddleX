@@ -54,8 +54,8 @@ class ChangeDetDataset(Dataset):
             buffer_size=buffer_size,
             parallel_method=parallel_method,
             shuffle=shuffle)
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
         self._epoch = 0
 
         if label_list is not None:
@@ -68,8 +68,8 @@ class ChangeDetDataset(Dataset):
                 items = line.strip().split()
                 if len(items) > 3:
                     raise Exception(
-                        "A space is defined as the separator, but it exists in image or label name {}."
-                        .format(line))
+                        f"A space is defined as the separator, but it exists in image or label name {line}."
+                    )
                 items[0] = path_normalization(items[0])
                 items[1] = path_normalization(items[1])
                 items[2] = path_normalization(items[2])
@@ -77,19 +77,15 @@ class ChangeDetDataset(Dataset):
                 full_path_im2 = osp.join(data_dir, items[1])
                 full_path_label = osp.join(data_dir, items[2])
                 if not osp.exists(full_path_im1):
-                    raise IOError('The image file {} is not exist!'.format(
-                        full_path_im1))
+                    raise IOError(f'The image file {full_path_im1} is not exist!')
                 if not osp.exists(full_path_im2):
-                    raise IOError('The image file {} is not exist!'.format(
-                        full_path_im2))
+                    raise IOError(f'The image file {full_path_im2} is not exist!')
                 if not osp.exists(full_path_label):
-                    raise IOError('The image file {} is not exist!'.format(
-                        full_path_label))
+                    raise IOError(f'The image file {full_path_label} is not exist!')
                 self.file_list.append(
                     [full_path_im1, full_path_im2, full_path_label])
         self.num_samples = len(self.file_list)
-        logging.info("{} samples in file {}".format(
-            len(self.file_list), file_list))
+        logging.info(f"{len(self.file_list)} samples in file {file_list}")
 
     def iterator(self):
         self._epoch += 1
@@ -104,5 +100,4 @@ class ChangeDetDataset(Dataset):
             image1 = seg_transforms.Compose.read_img(f[0])
             image2 = seg_transforms.Compose.read_img(f[1])
             image = np.concatenate((image1, image2), axis=-1)
-            sample = [image, None, label_path]
-            yield sample
+            yield [image, None, label_path]

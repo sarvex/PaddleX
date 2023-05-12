@@ -63,7 +63,7 @@ class BaseModel:
                        save_dir='.',
                        resume_checkpoint=None):
         if pretrain_weights is not None and \
-                not osp.exists(pretrain_weights):
+                    not osp.exists(pretrain_weights):
             if not osp.isdir(save_dir):
                 if osp.exists(save_dir):
                     os.remove(save_dir)
@@ -84,26 +84,24 @@ class BaseModel:
         if resume_checkpoint is not None:
             if not osp.exists(resume_checkpoint):
                 logging.error(
-                    "The checkpoint path {} to resume training from does not exist."
-                    .format(resume_checkpoint),
-                    exit=True)
+                    f"The checkpoint path {resume_checkpoint} to resume training from does not exist.",
+                    exit=True,
+                )
             if not osp.exists(osp.join(resume_checkpoint, 'model.pdparams')):
                 logging.error(
-                    "Model parameter state dictionary file 'model.pdparams' "
-                    "not found under given checkpoint path {}".format(
-                        resume_checkpoint),
-                    exit=True)
+                    f"Model parameter state dictionary file 'model.pdparams' not found under given checkpoint path {resume_checkpoint}",
+                    exit=True,
+                )
             if not osp.exists(osp.join(resume_checkpoint, 'model.pdopt')):
                 logging.error(
-                    "Optimizer state dictionary file 'model.pdparams' "
-                    "not found under given checkpoint path {}".format(
-                        resume_checkpoint),
-                    exit=True)
+                    f"Optimizer state dictionary file 'model.pdparams' not found under given checkpoint path {resume_checkpoint}",
+                    exit=True,
+                )
             if not osp.exists(osp.join(resume_checkpoint, 'model.yml')):
                 logging.error(
-                    "'model.yml' not found under given checkpoint path {}".
-                    format(resume_checkpoint),
-                    exit=True)
+                    f"'model.yml' not found under given checkpoint path {resume_checkpoint}",
+                    exit=True,
+                )
             with open(osp.join(resume_checkpoint, "model.yml")) as f:
                 info = yaml.load(f.read(), Loader=yaml.Loader)
                 self.completed_epochs = info['completed_epochs']
@@ -114,10 +112,6 @@ class BaseModel:
                 checkpoint=resume_checkpoint)
 
     def get_model_info(self):
-        info = dict()
-        info['version'] = paddlex.__version__
-        info['Model'] = self.__class__.__name__
-        info['_Attributes'] = {'model_type': self.model_type}
         if 'self' in self.init_params:
             del self.init_params['self']
         if '__class__' in self.init_params:
@@ -127,8 +121,12 @@ class BaseModel:
         if 'params' in self.init_params:
             del self.init_params['params']
 
-        info['_init_params'] = self.init_params
-
+        info = {
+            'version': paddlex.__version__,
+            'Model': self.__class__.__name__,
+            '_Attributes': {'model_type': self.model_type},
+            '_init_params': self.init_params,
+        }
         info['_Attributes']['num_classes'] = self.num_classes
         info['_Attributes']['labels'] = self.labels
         info['_Attributes']['fixed_input_shape'] = self.fixed_input_shape
@@ -142,22 +140,22 @@ class BaseModel:
         except:
             pass
 
-        if hasattr(self, 'test_transforms'):
-            if self.test_transforms is not None:
-                info['Transforms'] = list()
-                for op in self.test_transforms.transforms:
-                    name = op.__class__.__name__
-                    if name.startswith('Arrange'):
-                        continue
-                    attr = op.__dict__
-                    info['Transforms'].append({name: attr})
+        if hasattr(self, 'test_transforms') and self.test_transforms is not None:
+            info['Transforms'] = []
+            for op in self.test_transforms.transforms:
+                name = op.__class__.__name__
+                if name.startswith('Arrange'):
+                    continue
+                attr = op.__dict__
+                info['Transforms'].append({name: attr})
         info['completed_epochs'] = self.completed_epochs
         return info
 
     def get_pruning_info(self):
-        info = dict()
-        info['pruner'] = self.pruner.__class__.__name__
-        info['pruning_ratios'] = self.pruning_ratios
+        info = {
+            'pruner': self.pruner.__class__.__name__,
+            'pruning_ratios': self.pruning_ratios,
+        }
         pruner_inputs = self.pruner.inputs
         if self.model_type == 'detector':
             pruner_inputs = {
@@ -169,9 +167,7 @@ class BaseModel:
         return info
 
     def get_quant_info(self):
-        info = dict()
-        info['quant_config'] = self.quant_config
-        return info
+        return {'quant_config': self.quant_config}
 
     def save_model(self, save_dir):
         if not osp.isdir(save_dir):
@@ -212,13 +208,13 @@ class BaseModel:
 
         # 模型保存成功的标志
         open(osp.join(save_dir, '.success'), 'w').close()
-        logging.info("Model saved in {}.".format(save_dir))
+        logging.info(f"Model saved in {save_dir}.")
 
     def build_data_loader(self, dataset, batch_size, mode='train'):
         if dataset.num_samples < batch_size:
             raise Exception(
-                'The volume of dataset({}) must be larger than batch size({}).'
-                .format(dataset.num_samples, batch_size))
+                f'The volume of dataset({dataset.num_samples}) must be larger than batch size({batch_size}).'
+            )
         batch_size_each_card = get_single_card_bs(batch_size=batch_size)
         # TODO detection eval阶段需做判断
         batch_sampler = DistributedBatchSampler(
@@ -229,22 +225,18 @@ class BaseModel:
 
         if dataset.num_workers > 0:
             shm_size = _get_shared_memory_size_in_M()
-            if shm_size is None or shm_size < 1024.:
-                use_shared_memory = False
-            else:
-                use_shared_memory = True
+            use_shared_memory = shm_size is not None and shm_size >= 1024.
         else:
             use_shared_memory = False
 
-        loader = DataLoader(
+        return DataLoader(
             dataset,
             batch_sampler=batch_sampler,
             collate_fn=dataset.batch_transforms,
             num_workers=dataset.num_workers,
             return_list=True,
-            use_shared_memory=use_shared_memory)
-
-        return loader
+            use_shared_memory=use_shared_memory,
+        )
 
     def train_loop(self,
                    num_epochs,
@@ -272,12 +264,8 @@ class BaseModel:
             if not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized(
             ):
                 paddle.distributed.init_parallel_env()
-                ddp_net = paddle.DataParallel(
-                    self.net, find_unused_parameters=find_unused_parameters)
-            else:
-                ddp_net = paddle.DataParallel(
-                    self.net, find_unused_parameters=find_unused_parameters)
-
+            ddp_net = paddle.DataParallel(
+                self.net, find_unused_parameters=find_unused_parameters)
         if use_vdl:
             from visualdl import LogWriter
             vdl_logdir = osp.join(save_dir, 'vdl_log')
@@ -286,8 +274,8 @@ class BaseModel:
         # 用于在VisualDL日志中注明所属任务id
         task_id = getattr(paddlex, "task_id", "")
 
-        thresh = .0001
         if early_stop:
+            thresh = .0001
             earlystop = EarlyStop(early_stop_patience, thresh)
 
         self.train_data_loader = self.build_data_loader(
@@ -346,8 +334,10 @@ class BaseModel:
                     if use_vdl:
                         for k, v in outputs.items():
                             log_writer.add_scalar(
-                                '{}-Metrics/Training(Step): {}'.format(
-                                    task_id, k), v, current_step)
+                                f'{task_id}-Metrics/Training(Step): {k}',
+                                v,
+                                current_step,
+                            )
 
                     # 估算剩余时间
                     avg_step_time = train_step_time.avg()
@@ -362,14 +352,10 @@ class BaseModel:
                             eta += eval_epoch_time * eval_num_epochs
 
                     logging.info(
-                        "[TRAIN] Epoch={}/{}, Step={}/{}, {}, time_each_step={}s, eta={}"
-                        .format(i + 1, num_epochs, step + 1,
-                                train_step_each_epoch,
-                                dict2str(outputs),
-                                round(avg_step_time, 2), seconds_to_hms(eta)))
+                        f"[TRAIN] Epoch={i + 1}/{num_epochs}, Step={step + 1}/{train_step_each_epoch}, {dict2str(outputs)}, time_each_step={round(avg_step_time, 2)}s, eta={seconds_to_hms(eta)}"
+                    )
 
-            logging.info('[TRAIN] Epoch {} finished, {} .'
-                         .format(i + 1, train_avg_metrics.log()))
+            logging.info(f'[TRAIN] Epoch {i + 1} finished, {train_avg_metrics.log()} .')
             self.completed_epochs += 1
 
             # 每间隔save_interval_epochs, 在验证集上评估和对模型进行保存
@@ -386,8 +372,9 @@ class BaseModel:
                     # 保存最优模型
                     if local_rank == 0:
                         self.eval_metrics, self.eval_details = eval_result
-                        logging.info('[EVAL] Finished, Epoch={}, {} .'.format(
-                            i + 1, dict2str(self.eval_metrics)))
+                        logging.info(
+                            f'[EVAL] Finished, Epoch={i + 1}, {dict2str(self.eval_metrics)} .'
+                        )
                         best_accuracy_key = list(self.eval_metrics.keys())[0]
                         current_accuracy = self.eval_metrics[best_accuracy_key]
                         if current_accuracy > best_accuracy:
@@ -397,18 +384,20 @@ class BaseModel:
                             self.save_model(save_dir=best_model_dir)
                         if best_model_epoch > 0:
                             logging.info(
-                                'Current evaluated best model on eval_dataset is epoch_{}, {}={}'
-                                .format(best_model_epoch, best_accuracy_key,
-                                        best_accuracy))
+                                f'Current evaluated best model on eval_dataset is epoch_{best_model_epoch}, {best_accuracy_key}={best_accuracy}'
+                            )
                     eval_epoch_time = time.time() - eval_epoch_tic
 
-                current_save_dir = osp.join(save_dir, "epoch_{}".format(i + 1))
+                current_save_dir = osp.join(save_dir, f"epoch_{i + 1}")
                 if local_rank == 0:
                     self.save_model(save_dir=current_save_dir)
 
-                    if eval_dataset is not None and early_stop:
-                        if earlystop(current_accuracy):
-                            break
+                    if (
+                        eval_dataset is not None
+                        and early_stop
+                        and earlystop(current_accuracy)
+                    ):
+                        break
             if ema is not None:
                 self.net.set_state_dict(weight)
 
@@ -427,11 +416,12 @@ class BaseModel:
 
         """
         if self.__class__.__name__ in ['FasterRCNN', 'MaskRCNN']:
-            raise Exception("{} does not support pruning currently!".format(
-                self.__class__.__name__))
+            raise Exception(
+                f"{self.__class__.__name__} does not support pruning currently!"
+            )
 
         assert criterion in ['l1_norm', 'fpgm'], \
-            "Pruning criterion {} is not supported. Please choose from ['l1_norm', 'fpgm']"
+                "Pruning criterion {} is not supported. Please choose from ['l1_norm', 'fpgm']"
         arrange_transforms(
             model_type=self.model_type,
             transforms=dataset.transforms,
@@ -455,8 +445,8 @@ class BaseModel:
             eval_func=partial(_pruner_eval_fn, self, dataset, batch_size),
             sen_file=sen_file)
         logging.info(
-            'Sensitivity analysis is complete. The result is saved at {}.'.
-            format(sen_file))
+            f'Sensitivity analysis is complete. The result is saved at {sen_file}.'
+        )
 
     def prune(self, pruned_flops, save_dir=None):
         """
@@ -471,19 +461,17 @@ class BaseModel:
             raise Exception(
                 "A pruned model cannot be done model pruning again!")
         pre_pruning_flops = flops(self.net, self.pruner.inputs)
-        logging.info("Pre-pruning FLOPs: {}. Pruning starts...".format(
-            pre_pruning_flops))
+        logging.info(f"Pre-pruning FLOPs: {pre_pruning_flops}. Pruning starts...")
         _, self.pruning_ratios = sensitive_prune(self.pruner, pruned_flops)
         post_pruning_flops = flops(self.net, self.pruner.inputs)
-        logging.info("Pruning is complete. Post-pruning FLOPs: {}".format(
-            post_pruning_flops))
+        logging.info(f"Pruning is complete. Post-pruning FLOPs: {post_pruning_flops}")
         logging.warning("Pruning the model may hurt its performance, "
                         "retraining is highly recommended")
         self.status = 'Pruned'
 
         if save_dir is not None:
             self.save_model(save_dir)
-            logging.info("Pruned model is saved at {}".format(save_dir))
+            logging.info(f"Pruned model is saved at {save_dir}")
 
     def _prepare_qat(self, quant_config):
         if quant_config is None:
@@ -521,15 +509,11 @@ class BaseModel:
             self.status = 'Quantized'
         elif quant_config != self.quant_config:
             logging.error(
-                "The model has been quantized with the following quant_config: {}."
-                "Doing quantization-aware training with a quantized model "
-                "using a different configuration is not supported."
-                .format(self.quant_config),
-                exit=True)
+                f"The model has been quantized with the following quant_config: {self.quant_config}.Doing quantization-aware training with a quantized model using a different configuration is not supported.",
+                exit=True,
+            )
 
     def _get_pipeline_info(self, save_dir):
-        pipeline_info = {}
-        pipeline_info["pipeline_name"] = self.model_type
         nodes = [{
             "src0": {
                 "type": "Source",
@@ -556,9 +540,11 @@ class BaseModel:
                 "type": "Sink"
             }
         }]
-        pipeline_info["pipeline_nodes"] = nodes
-        pipeline_info["version"] = "1.0.0"
-        return pipeline_info
+        return {
+            "pipeline_name": self.model_type,
+            "pipeline_nodes": nodes,
+            "version": "1.0.0",
+        }
 
     def _export_inference_model(self, save_dir, image_shape=None):
         save_dir = osp.join(save_dir, 'inference_model')
@@ -601,5 +587,4 @@ class BaseModel:
 
         # 模型保存成功的标志
         open(osp.join(save_dir, '.success'), 'w').close()
-        logging.info("The model for the inference deployment is saved in {}.".
-                     format(save_dir))
+        logging.info(f"The model for the inference deployment is saved in {save_dir}.")

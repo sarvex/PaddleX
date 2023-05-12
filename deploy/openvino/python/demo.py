@@ -62,16 +62,16 @@ def main():
         predictor = deploy.Predictor(model_xml, model_yaml)
 
     #predict
-    if (args.img_list != None):
-        f = open(args.img_list)
-        lines = f.readlines()
-        for im_path in lines:
-            print(im_path)
-            predictor.predict(im_path.strip('\n'))
-        f.close()
-    else:
+    if args.img_list is None:
         im_path = args.img
         predictor.predict(im_path)
+
+    else:
+        with open(args.img_list) as f:
+            lines = f.readlines()
+            for im_path in lines:
+                print(im_path)
+                predictor.predict(im_path.strip('\n'))
 
 
 if __name__ == "__main__":

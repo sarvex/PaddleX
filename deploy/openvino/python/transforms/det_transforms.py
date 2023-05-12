@@ -52,12 +52,9 @@ class Compose(DetTransform):
             raise TypeError('The transforms must be a list!')
         if len(transforms) < 1:
             raise ValueError('The length of transforms ' + \
-                            'must be equal or larger than 1!')
+                                'must be equal or larger than 1!')
         self.transforms = transforms
-        self.use_mixup = False
-        for t in self.transforms:
-            if type(t).__name__ == 'MixupImage':
-                self.use_mixup = True
+        self.use_mixup = any(type(t).__name__ == 'MixupImage' for t in self.transforms)
 
     def __call__(self, im, im_info=None, label_info=None):
         """
@@ -90,7 +87,7 @@ class Compose(DetTransform):
 
         def decode_image(im_file, im_info, label_info):
             if im_info is None:
-                im_info = dict()
+                im_info = {}
             if isinstance(im_file, np.ndarray):
                 if len(im_file.shape) != 3:
                     raise Exception(
@@ -109,19 +106,15 @@ class Compose(DetTransform):
                 [im.shape[0], im.shape[1], 1.], dtype=np.float32)
             im_info['image_shape'] = np.array([im.shape[0],
                                                im.shape[1]]).astype('int32')
-            if not self.use_mixup:
-                if 'mixup' in im_info:
-                    del im_info['mixup']
+            if not self.use_mixup and 'mixup' in im_info:
+                del im_info['mixup']
             # decode mixup image
             if 'mixup' in im_info:
                 im_info['mixup'] = \
-                  decode_image(im_info['mixup'][0],
+                      decode_image(im_info['mixup'][0],
                                im_info['mixup'][1],
                                im_info['mixup'][2])
-            if label_info is None:
-                return (im, im_info)
-            else:
-                return (im, im_info, label_info)
+            return (im, im_info) if label_info is None else (im, im_info, label_info)
 
         outputs = decode_image(im, im_info, label_info)
         im = outputs[0]
@@ -143,8 +136,8 @@ class Compose(DetTransform):
         for aug in augmenters:
             if type(aug).__name__ in transform_names:
                 print(
-                    "{} is already in ComposedTransforms, need to remove it from add_augmenters().".
-                    format(type(aug).__name__))
+                    f"{type(aug).__name__} is already in ComposedTransforms, need to remove it from add_augmenters()."
+                )
         self.transforms = augmenters + self.transforms
 
 
@@ -170,8 +163,8 @@ class ResizeByShort(DetTransform):
         self.max_size = int(max_size)
         if not isinstance(short_size, int):
             raise TypeError(
-                "Type of short_size is invalid. Must be Integer, now is {}".
-                format(type(short_size)))
+                f"Type of short_size is invalid. Must be Integer, now is {type(short_size)}"
+            )
         self.short_size = short_size
         if not (isinstance(self.max_size, int)):
             raise TypeError("max_size: input type is invalid.")
@@ -196,7 +189,7 @@ class ResizeByShort(DetTransform):
             ValueError: 数据长度不匹配。
         """
         if im_info is None:
-            im_info = dict()
+            im_info = {}
         if not isinstance(im, np.ndarray):
             raise TypeError("ResizeByShort: image type is not numpy.")
         if len(im.shape) != 3:
@@ -214,10 +207,7 @@ class ResizeByShort(DetTransform):
             im, (resized_width, resized_height),
             interpolation=cv2.INTER_LINEAR)
         im_info['im_resize_info'] = np.array(im_resize_info).astype(np.float32)
-        if label_info is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label_info)
+        return (im, im_info) if label_info is None else (im, im_info, label_info)
 
 
 class Padding(DetTransform):
@@ -247,16 +237,15 @@ class Padding(DetTransform):
 
     def __init__(self, coarsest_stride=1, target_size=None):
         self.coarsest_stride = coarsest_stride
-        if target_size is not None:
-            if not isinstance(target_size, int):
-                if not isinstance(target_size, tuple) and not isinstance(
-                        target_size, list):
-                    raise TypeError(
-                        "Padding: Type of target_size must in (int|list|tuple)."
-                    )
-                elif len(target_size) != 2:
-                    raise ValueError(
-                        "Padding: Length of target_size must equal 2.")
+        if target_size is not None and not isinstance(target_size, int):
+            if not isinstance(target_size, tuple) and not isinstance(
+                    target_size, list):
+                raise TypeError(
+                    "Padding: Type of target_size must in (int|list|tuple)."
+                )
+            elif len(target_size) != 2:
+                raise ValueError(
+                    "Padding: Length of target_size must equal 2.")
         self.target_size = target_size
 
     def __call__(self, im, im_info=None, label_info=None):
@@ -278,7 +267,7 @@ class Padding(DetTransform):
             ValueError: target_size小于原图的大小。
         """
         if im_info is None:
-            im_info = dict()
+            im_info = {}
         if not isinstance(im, np.ndarray):
             raise TypeError("Padding: image type is not numpy.")
         if len(im.shape) != 3:
@@ -288,8 +277,7 @@ class Padding(DetTransform):
         if isinstance(self.target_size, int):
             padding_im_h = self.target_size
             padding_im_w = self.target_size
-        elif isinstance(self.target_size, list) or isinstance(self.target_size,
-                                                              tuple):
+        elif isinstance(self.target_size, (list, tuple)):
             padding_im_w = self.target_size[0]
             padding_im_h = self.target_size[1]
         elif self.coarsest_stride > 0:
@@ -305,8 +293,8 @@ class Padding(DetTransform):
         pad_width = padding_im_w - im_w
         if pad_height < 0 or pad_width < 0:
             raise ValueError(
-                'the size of image should be less than target_size, but the size of image ({}, {}), is larger than target_size ({}, {})'
-                .format(im_w, im_h, padding_im_w, padding_im_h))
+                f'the size of image should be less than target_size, but the size of image ({im_w}, {im_h}), is larger than target_size ({padding_im_w}, {padding_im_h})'
+            )
         padding_im = np.zeros(
             (padding_im_h, padding_im_w, im_c), dtype=np.float32)
         padding_im[:im_h, :im_w, :] = im
@@ -347,18 +335,17 @@ class Resize(DetTransform):
 
     def __init__(self, target_size=608, interp='LINEAR'):
         self.interp = interp
-        if not (interp == "RANDOM" or interp in self.interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                self.interp_dict.keys()))
-        if isinstance(target_size, list) or isinstance(target_size, tuple):
+        if interp != "RANDOM" and interp not in self.interp_dict:
+            raise ValueError(f"interp should be one of {self.interp_dict.keys()}")
+        if isinstance(target_size, (list, tuple)):
             if len(target_size) != 2:
                 raise TypeError(
-                    'when target is list or tuple, it should include 2 elements, but it is {}'
-                    .format(target_size))
+                    f'when target is list or tuple, it should include 2 elements, but it is {target_size}'
+                )
         elif not isinstance(target_size, int):
             raise TypeError(
-                "Type of target_size is invalid. Must be Integer or List or tuple, now is {}"
-                .format(type(target_size)))
+                f"Type of target_size is invalid. Must be Integer or List or tuple, now is {type(target_size)}"
+            )
 
         self.target_size = target_size
 
@@ -379,7 +366,7 @@ class Resize(DetTransform):
             ValueError: 数据长度不匹配。
         """
         if im_info is None:
-            im_info = dict()
+            im_info = {}
         if not isinstance(im, np.ndarray):
             raise TypeError("Resize: image type is not numpy.")
         if len(im.shape) != 3:
@@ -389,10 +376,7 @@ class Resize(DetTransform):
         else:
             interp = self.interp
         im = resize(im, self.target_size, self.interp_dict[interp])
-        if label_info is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label_info)
+        return (im, im_info) if label_info is None else (im, im_info, label_info)
 
 
 class Normalize(DetTransform):
@@ -433,10 +417,7 @@ class Normalize(DetTransform):
         mean = np.array(self.mean)[np.newaxis, np.newaxis, :]
         std = np.array(self.std)[np.newaxis, np.newaxis, :]
         im = normalize(im, mean, std)
-        if label_info is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label_info)
+        return (im, im_info) if label_info is None else (im, im_info, label_info)
 
 
 class ArrangeYOLOv3(DetTransform):
@@ -475,16 +456,12 @@ class ArrangeYOLOv3(DetTransform):
             ValueError: 数据长度不匹配。
         """
         im = permute(im, False)
-        if self.mode == 'train':
-            pass
-        elif self.mode == 'eval':
-            pass
-        else:
+        if self.mode not in ['train', 'eval']:
             if im_info is None:
                 raise TypeError('Cannot do ArrangeYolov3! ' +
                                 'Becasuse the im_info can not be None!')
-            im_shape = im_info['image_shape']
-            outputs = (im, im_shape)
+            else:
+                outputs = im, im_info['image_shape']
         return outputs
 
 
@@ -527,10 +504,7 @@ class ComposedYOLOv3Transforms(Compose):
                 "In YOLOv3 model, width and height should be multiple of 32, e.g 224、256、320...."
             )
 
-        if mode == 'train':
-            # 训练时的transforms，包含数据增强
-            pass
-        else:
+        if mode != 'train':
             # 验证/预测时的transforms
             transforms = [
                 Resize(

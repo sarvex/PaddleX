@@ -86,7 +86,7 @@ def export_openvino_model(model, args):
         shape = '[1,{},' + shape_list[1] + ',' + shape_list[0] + ']'
         shape = shape.format(input_channel)
         if model.__class__.__name__ == "YOLOv3":
-            shape = shape + ",[1,2]"
+            shape = f"{shape},[1,2]"
             inputs = "image,im_size"
             onnx_parser.set_defaults(input=inputs)
         onnx_parser.set_defaults(input_shape=shape)
@@ -99,7 +99,7 @@ def main():
     assert args.model_dir is not None, "--model_dir should be defined while exporting openvino model"
     assert args.save_dir is not None, "--save_dir should be defined to create openvino model"
     model = pdx.load_model(args.model_dir)
-    if model.status == "Normal" or model.status == "Prune":
+    if model.status in ["Normal", "Prune"]:
         print(
             "Only support inference model, try to export inference model first as below,"
         )

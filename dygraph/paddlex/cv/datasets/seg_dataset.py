@@ -44,8 +44,8 @@ class SegDataset(Dataset):
         self.batch_transforms = None
         self.num_workers = get_num_workers(num_workers)
         self.shuffle = shuffle
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
 
         # TODO：非None时，让用户跳转数据集分析生成label_list
         # 不要在此处分析label file
@@ -59,9 +59,8 @@ class SegDataset(Dataset):
                 items = line.strip().split()
                 if len(items) > 2:
                     raise Exception(
-                        "A space is defined as the delimiter to separate the image and label path, " \
-                        "so the space cannot be in the image or label path, but the line[{}] of " \
-                        " file_list[{}] has a space in the image or label path.".format(line, file_list))
+                        f"A space is defined as the delimiter to separate the image and label path, so the space cannot be in the image or label path, but the line[{line}] of  file_list[{file_list}] has a space in the image or label path."
+                    )
                 items[0] = path_normalization(items[0])
                 items[1] = path_normalization(items[1])
                 if not is_pic(items[0]) or not is_pic(items[1]):
@@ -69,23 +68,19 @@ class SegDataset(Dataset):
                 full_path_im = osp.join(data_dir, items[0])
                 full_path_label = osp.join(data_dir, items[1])
                 if not osp.exists(full_path_im):
-                    raise IOError('Image file {} does not exist!'.format(
-                        full_path_im))
+                    raise IOError(f'Image file {full_path_im} does not exist!')
                 if not osp.exists(full_path_label):
-                    raise IOError('Label file {} does not exist!'.format(
-                        full_path_label))
+                    raise IOError(f'Label file {full_path_label} does not exist!')
                 self.file_list.append({
                     'image': full_path_im,
                     'mask': full_path_label
                 })
         self.num_samples = len(self.file_list)
-        logging.info("{} samples in file {}".format(
-            len(self.file_list), file_list))
+        logging.info(f"{len(self.file_list)} samples in file {file_list}")
 
     def __getitem__(self, idx):
         sample = copy.deepcopy(self.file_list[idx])
-        outputs = self.transforms(sample)
-        return outputs
+        return self.transforms(sample)
 
     def __len__(self):
         return len(self.file_list)

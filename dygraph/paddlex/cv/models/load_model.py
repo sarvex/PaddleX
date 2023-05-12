@@ -30,11 +30,10 @@ def load_rcnn_inference_model(model_dir):
     paddle.disable_static()
     extra_var_info = paddle.load(osp.join(model_dir, "model.pdiparams.info"))
 
-    net_state_dict = dict()
-    static_state_dict = dict()
-
-    for name, var in prog.state_dict().items():
-        static_state_dict[name] = np.array(var)
+    net_state_dict = {}
+    static_state_dict = {
+        name: np.array(var) for name, var in prog.state_dict().items()
+    }
     for var_name in static_state_dict:
         if var_name not in extra_var_info:
             continue
@@ -55,9 +54,9 @@ def load_model(model_dir):
         The model loaded from the directory.
     """
     if not osp.exists(model_dir):
-        logging.error("model_dir '{}' does not exists!".format(model_dir))
+        logging.error(f"model_dir '{model_dir}' does not exists!")
     if not osp.exists(osp.join(model_dir, "model.yml")):
-        raise Exception("There's no model.yml in {}".format(model_dir))
+        raise Exception(f"There's no model.yml in {model_dir}")
     with open(osp.join(model_dir, "model.yml")) as f:
         model_info = yaml.load(f.read(), Loader=yaml.Loader)
     f.close()
@@ -65,14 +64,15 @@ def load_model(model_dir):
     version = model_info['version']
     if int(version.split('.')[0]) < 2:
         raise Exception(
-            'Current version is {}, a model trained by PaddleX={} cannot be load.'.
-            format(paddlex.__version__, version))
+            f'Current version is {paddlex.__version__}, a model trained by PaddleX={version} cannot be load.'
+        )
 
     status = model_info['status']
 
     if not hasattr(paddlex.cv.models, model_info['Model']):
-        raise Exception("There's no attribute {} in paddlex.cv.models".format(
-            model_info['Model']))
+        raise Exception(
+            f"There's no attribute {model_info['Model']} in paddlex.cv.models"
+        )
     if 'model_name' in model_info['_init_params']:
         del model_info['_init_params']['model_name']
 
@@ -104,22 +104,24 @@ def load_model(model_dir):
                     ratios=model.pruning_ratios,
                     axis=paddleslim.dygraph.prune.filter_pruner.FILTER_DIM)
 
-        if status == 'Quantized':
+        if status == 'Infer':
+            net_state_dict = (
+                load_rcnn_inference_model(model_dir)
+                if model_info['Model'] in ['FasterRCNN', 'MaskRCNN']
+                else paddle.load(osp.join(model_dir, 'model'))
+            )
+        elif status == 'Quantized':
             with open(osp.join(model_dir, "quant.yml")) as f:
                 quant_info = yaml.load(f.read(), Loader=yaml.Loader)
                 model.quant_config = quant_info['quant_config']
                 model.quantizer = paddleslim.QAT(model.quant_config)
                 model.quantizer.quantize(model.net)
 
-        if status == 'Infer':
-            if model_info['Model'] in ['FasterRCNN', 'MaskRCNN']:
-                net_state_dict = load_rcnn_inference_model(model_dir)
-            else:
-                net_state_dict = paddle.load(osp.join(model_dir, 'model'))
+            net_state_dict = paddle.load(osp.join(model_dir, 'model.pdparams'))
         else:
             net_state_dict = paddle.load(osp.join(model_dir, 'model.pdparams'))
         model.net.set_state_dict(net_state_dict)
 
-        logging.info("Model[{}] loaded.".format(model_info['Model']))
+        logging.info(f"Model[{model_info['Model']}] loaded.")
         model.status = status
     return model

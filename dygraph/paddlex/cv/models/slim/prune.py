@@ -24,20 +24,20 @@ def _pruner_eval_fn(model, eval_dataset, batch_size):
 
 
 def _pruner_template_input(sample, model_type):
-    if model_type == 'detector':
-        template_input = [{
-            "image": paddle.ones(
-                shape=[1, 3] + list(sample["image"].shape[:2]),
-                dtype='float32'),
-            "im_shape": paddle.full(
-                [1, 2], 640, dtype='float32'),
-            "scale_factor": paddle.ones(
-                shape=[1, 2], dtype='float32')
-        }]
-    else:
-        template_input = [1] + list(sample[0].shape)
-
-    return template_input
+    return (
+        [
+            {
+                "image": paddle.ones(
+                    shape=[1, 3] + list(sample["image"].shape[:2]),
+                    dtype='float32',
+                ),
+                "im_shape": paddle.full([1, 2], 640, dtype='float32'),
+                "scale_factor": paddle.ones(shape=[1, 2], dtype='float32'),
+            }
+        ]
+        if model_type == 'detector'
+        else [1] + list(sample[0].shape)
+    )
 
 
 def sensitive_prune(pruner, pruned_flops, skip_vars=[], align=None):

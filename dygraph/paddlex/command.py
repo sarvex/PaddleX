@@ -125,7 +125,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print("PaddleX-{}".format(pdx.__version__))
+        print(f"PaddleX-{pdx.__version__}")
         print("Repo: https://github.com/PaddlePaddle/PaddleX.git")
         print("Email: paddlex@baidu.com")
         return
@@ -137,16 +137,17 @@ def main():
         fixed_input_shape = None
         if args.fixed_input_shape is not None:
             fixed_input_shape = list(eval(args.fixed_input_shape))
-            assert len(fixed_input_shape) in [
-                2, 4
-            ], "fixed_input_shape must be a list/tuple with length 2 or 4, such as [224,224] or [1,3,224,244]"
+            assert len(fixed_input_shape) in {
+                2,
+                4,
+            }, "fixed_input_shape must be a list/tuple with length 2 or 4, such as [224,224] or [1,3,224,244]"
             if len(fixed_input_shape) == 4:
-                assert fixed_input_shape[
-                    1] == 3, "input channel in fixed_input_shape must be 3, but recieved is {}".format(
-                        fixed_input_shape[1])
-            assert fixed_input_shape[-2] > 0 and fixed_input_shape[
-                -1] > 0, "input width and height must be a positive integer, but recievied is {}".format(
-                    fixed_input_shape[-2:])
+                assert (
+                    fixed_input_shape[1] == 3
+                ), f"input channel in fixed_input_shape must be 3, but recieved is {fixed_input_shape[1]}"
+            assert (
+                fixed_input_shape[-2] > 0 and fixed_input_shape[-1] > 0
+            ), f"input width and height must be a positive integer, but recievied is {fixed_input_shape[-2:]}"
 
             # input fixed_input_shape is [w,h]
             # export_inference_model needs [h,w]
@@ -165,14 +166,14 @@ def main():
         assert args.save_dir is not None, "--save_dir should be defined to store taregt dataset"
         if args.source not in ['labelme', 'jingling', 'easydata']:
             logging.error(
-                "The source format {} is not one of labelme/jingling/easydata".
-                format(args.source),
-                exit=False)
+                f"The source format {args.source} is not one of labelme/jingling/easydata",
+                exit=False,
+            )
         if args.to not in ['PascalVOC', 'MSCOCO', 'SEG', 'ImageNet']:
             logging.error(
-                "The to format {} is not one of PascalVOC/MSCOCO/SEG/ImageNet".
-                format(args.to),
-                exit=False)
+                f"The to format {args.to} is not one of PascalVOC/MSCOCO/SEG/ImageNet",
+                exit=False,
+            )
         if args.source == 'labelme' and args.to == 'ImageNet':
             logging.error(
                 "The labelme dataset can not convert to the ImageNet dataset.",
@@ -198,7 +199,7 @@ def main():
                            if args.test_value is not None else 0)
         save_dir = dataset_dir
 
-        if not dataset_format in ["coco", "imagenet", "voc", "seg"]:
+        if dataset_format not in ["coco", "imagenet", "voc", "seg"]:
             logging.error(
                 "The dataset format is not correct defined.(support COCO/ImageNet/VOC/Seg)"
             )

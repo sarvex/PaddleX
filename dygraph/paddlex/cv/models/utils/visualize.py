@@ -32,19 +32,18 @@ def visualize_detection(image,
     """
 
     if isinstance(image, np.ndarray):
-        image_name = str(int(time.time() * 1000)) + '.jpg'
+        image_name = f'{int(time.time() * 1000)}.jpg'
     else:
         image_name = os.path.split(image)[-1]
         image = cv2.imread(image)
     image = draw_bbox_mask(image, result, threshold=threshold, color_map=color)
-    if save_dir is not None:
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        out_path = os.path.join(save_dir, 'visualize_{}'.format(image_name))
-        cv2.imwrite(out_path, image)
-        logging.info('The visualized result is saved at {}'.format(out_path))
-    else:
+    if save_dir is None:
         return image
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    out_path = os.path.join(save_dir, f'visualize_{image_name}')
+    cv2.imwrite(out_path, image)
+    logging.info(f'The visualized result is saved at {out_path}')
 
 
 def visualize_segmentation(image,
@@ -76,7 +75,7 @@ def visualize_segmentation(image,
 
     if isinstance(image, np.ndarray):
         im = image
-        image_name = str(int(time.time() * 1000)) + '.jpg'
+        image_name = f'{int(time.time() * 1000)}.jpg'
         if image.shape[2] != 3:
             logging.info(
                 "The image is not 3-channel array, so predicted label map is shown as a pseudo color image."
@@ -100,14 +99,13 @@ def visualize_segmentation(image,
                                      pseudo_img.astype(im.dtype), 1 - weight,
                                      0)
 
-    if save_dir is not None:
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        out_path = os.path.join(save_dir, 'visualize_{}'.format(image_name))
-        cv2.imwrite(out_path, vis_result)
-        logging.info('The visualized result is saved as {}'.format(out_path))
-    else:
+    if save_dir is None:
         return vis_result
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    out_path = os.path.join(save_dir, f'visualize_{image_name}')
+    cv2.imwrite(out_path, vis_result)
+    logging.info(f'The visualized result is saved as {out_path}')
 
 
 def get_color_map_list(num_classes):
@@ -167,7 +165,7 @@ def draw_bbox_mask(image, results, threshold=0.5, color_map=None):
     default_font_scale = max(np.sqrt(height * width) // 900, .5)
     linewidth = max(default_font_scale / 40, 2)
 
-    labels = list()
+    labels = []
     for dt in results:
         if dt['category'] not in labels:
             labels.append(dt['category'])
@@ -237,10 +235,7 @@ def draw_bbox_mask(image, results, threshold=0.5, color_map=None):
         text_pos = (xmin, ymin)
         instance_area = w * h
         if (instance_area < _SMALL_OBJECT_AREA_THRESH or h < 40):
-            if ymin >= height - 5:
-                text_pos = (xmin, ymin)
-            else:
-                text_pos = (xmin, ymax)
+            text_pos = (xmin, ymin) if ymin >= height - 5 else (xmin, ymax)
         height_ratio = h / np.sqrt(height * width)
         font_scale = (np.clip((height_ratio - 0.02) / 0.08 + 1, 1.2,
                               2) * 0.5 * default_font_scale)
@@ -317,10 +312,7 @@ def draw_pr_curve(eval_details_file=None,
                 t = np.where(iouThr == p.iouThrs)[0]
                 s = s[t]
             s = s[:, :, aind, mind]
-        if len(s[s > -1]) == 0:
-            mean_s = -1
-        else:
-            mean_s = np.mean(s[s > -1])
+        mean_s = -1 if len(s[s > -1]) == 0 else np.mean(s[s > -1])
         return mean_s
 
     def cal_pr(coco_gt, coco_dt, iou_thresh, save_dir, style='bbox'):

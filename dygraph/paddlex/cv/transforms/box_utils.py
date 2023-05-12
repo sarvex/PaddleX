@@ -16,10 +16,8 @@
 def bbox_area(src_bbox):
     if src_bbox[2] < src_bbox[0] or src_bbox[3] < src_bbox[1]:
         return 0.
-    else:
-        width = src_bbox[2] - src_bbox[0]
-        height = src_bbox[3] - src_bbox[1]
-        return width * height
+    width = src_bbox[2] - src_bbox[0]
+    return width * (src_bbox[3] - src_bbox[1])
 
 
 def jaccard_overlap(sample_bbox, object_bbox):
@@ -36,6 +34,6 @@ def jaccard_overlap(sample_bbox, object_bbox):
         intersect_ymax - intersect_ymin)
     sample_bbox_size = bbox_area(sample_bbox)
     object_bbox_size = bbox_area(object_bbox)
-    overlap = intersect_size / (
-        sample_bbox_size + object_bbox_size - intersect_size)
-    return overlap
+    return intersect_size / (
+        sample_bbox_size + object_bbox_size - intersect_size
+    )

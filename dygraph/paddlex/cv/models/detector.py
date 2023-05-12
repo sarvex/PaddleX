@@ -44,8 +44,7 @@ class BaseDetector(BaseModel):
         self.init_params.update(locals())
         super(BaseDetector, self).__init__('detector')
         if not hasattr(ppdet.modeling, model_name):
-            raise Exception("ERROR: There's no model named {}.".format(
-                model_name))
+            raise Exception(f"ERROR: There's no model named {model_name}.")
 
         self.model_name = model_name
         self.num_classes = num_classes
@@ -61,25 +60,27 @@ class BaseDetector(BaseModel):
         raise NotImplementedError("_fix_transforms_shape: not implemented!")
 
     def _define_input_spec(self, image_shape):
-        input_spec = [{
-            "image": InputSpec(
-                shape=image_shape, name='image', dtype='float32'),
-            "im_shape": InputSpec(
-                shape=[image_shape[0], 2], name='im_shape', dtype='float32'),
-            "scale_factor": InputSpec(
-                shape=[image_shape[0], 2],
-                name='scale_factor',
-                dtype='float32')
-        }]
-        return input_spec
+        return [
+            {
+                "image": InputSpec(
+                    shape=image_shape, name='image', dtype='float32'
+                ),
+                "im_shape": InputSpec(
+                    shape=[image_shape[0], 2], name='im_shape', dtype='float32'
+                ),
+                "scale_factor": InputSpec(
+                    shape=[image_shape[0], 2], name='scale_factor', dtype='float32'
+                ),
+            }
+        ]
 
     def _check_image_shape(self, image_shape):
         if len(image_shape) == 2:
             image_shape = [1, 3] + image_shape
             if image_shape[-2] % 32 > 0 or image_shape[-1] % 32 > 0:
                 raise Exception(
-                    "Height and width in fixed_input_shape must be a multiple of 32, but received {}.".
-                    format(image_shape[-2:]))
+                    f"Height and width in fixed_input_shape must be a multiple of 32, but received {image_shape[-2:]}."
+                )
         return image_shape
 
     def _get_test_inputs(self, image_shape):
@@ -93,21 +94,15 @@ class BaseDetector(BaseModel):
         return self._define_input_spec(image_shape)
 
     def _get_backbone(self, backbone_name, **params):
-        backbone = getattr(ppdet.modeling, backbone_name)(**params)
-        return backbone
+        return getattr(ppdet.modeling, backbone_name)(**params)
 
     def run(self, net, inputs, mode):
         net_out = net(inputs)
         if mode in ['train', 'eval']:
-            outputs = net_out
-        else:
-            for key in ['im_shape', 'scale_factor']:
-                net_out[key] = inputs[key]
-            outputs = dict()
-            for key in net_out:
-                outputs[key] = net_out[key].numpy()
-
-        return outputs
+            return net_out
+        for key in ['im_shape', 'scale_factor']:
+            net_out[key] = inputs[key]
+        return {key: net_out[key].numpy() for key in net_out}
 
     def default_optimizer(self, parameters, learning_rate, warmup_steps,
                           warmup_start_lr, lr_decay_epochs, lr_decay_gamma,
@@ -196,31 +191,40 @@ class BaseDetector(BaseModel):
             logging.error(
                 "pretrain_weights and resume_checkpoint cannot be set simultaneously.",
                 exit=True)
-        if train_dataset.__class__.__name__ == 'VOCDetection':
+        if train_dataset.__class__.__name__ == 'CocoDetection':
+            train_dataset.data_fields = (
+                {
+                    'im_id',
+                    'image_shape',
+                    'image',
+                    'gt_bbox',
+                    'gt_class',
+                    'gt_poly',
+                    'is_crowd',
+                }
+                if self.__class__.__name__ == 'MaskRCNN'
+                else {
+                    'im_id',
+                    'image_shape',
+                    'image',
+                    'gt_bbox',
+                    'gt_class',
+                    'is_crowd',
+                }
+            )
+        elif train_dataset.__class__.__name__ == 'VOCDetection':
             train_dataset.data_fields = {
                 'im_id', 'image_shape', 'image', 'gt_bbox', 'gt_class',
                 'difficult'
             }
-        elif train_dataset.__class__.__name__ == 'CocoDetection':
-            if self.__class__.__name__ == 'MaskRCNN':
-                train_dataset.data_fields = {
-                    'im_id', 'image_shape', 'image', 'gt_bbox', 'gt_class',
-                    'gt_poly', 'is_crowd'
-                }
-            else:
-                train_dataset.data_fields = {
-                    'im_id', 'image_shape', 'image', 'gt_bbox', 'gt_class',
-                    'is_crowd'
-                }
-
         if metric is None:
-            if eval_dataset.__class__.__name__ == 'VOCDetection':
-                self.metric = 'voc'
-            elif eval_dataset.__class__.__name__ == 'CocoDetection':
+            if eval_dataset.__class__.__name__ == 'CocoDetection':
                 self.metric = 'coco'
+            elif eval_dataset.__class__.__name__ == 'VOCDetection':
+                self.metric = 'voc'
         else:
             assert metric.lower() in ['coco', 'voc'], \
-                "Evaluation metric {} is not supported, please choose form 'COCO' and 'VOC'"
+                    "Evaluation metric {} is not supported, please choose form 'COCO' and 'VOC'"
             self.metric = metric.lower()
 
         self.labels = train_dataset.labels
@@ -243,23 +247,23 @@ class BaseDetector(BaseModel):
             self.optimizer = optimizer
 
         # initiate weights
-        if pretrain_weights is not None and not osp.exists(pretrain_weights):
-            if pretrain_weights not in det_pretrain_weights_dict['_'.join(
+        if pretrain_weights is not None:
+            if not osp.exists(pretrain_weights):
+                if pretrain_weights not in det_pretrain_weights_dict['_'.join(
                 [self.model_name, self.backbone_name])]:
-                logging.warning(
-                    "Path of pretrain_weights('{}') does not exist!".format(
-                        pretrain_weights))
-                pretrain_weights = det_pretrain_weights_dict['_'.join(
-                    [self.model_name, self.backbone_name])][0]
-                logging.warning("Pretrain_weights is forcibly set to '{}'. "
-                                "If you don't want to use pretrain weights, "
-                                "set pretrain_weights to be None.".format(
-                                    pretrain_weights))
-        elif pretrain_weights is not None and osp.exists(pretrain_weights):
-            if osp.splitext(pretrain_weights)[-1] != '.pdparams':
-                logging.error(
-                    "Invalid pretrain weights. Please specify a '.pdparams' file.",
-                    exit=True)
+                    logging.warning(
+                        f"Path of pretrain_weights('{pretrain_weights}') does not exist!"
+                    )
+                    pretrain_weights = det_pretrain_weights_dict['_'.join(
+                        [self.model_name, self.backbone_name])][0]
+                    logging.warning(
+                        f"Pretrain_weights is forcibly set to '{pretrain_weights}'. If you don't want to use pretrain weights, set pretrain_weights to be None."
+                    )
+            elif osp.exists(pretrain_weights):
+                if osp.splitext(pretrain_weights)[-1] != '.pdparams':
+                    logging.error(
+                        "Invalid pretrain weights. Please specify a '.pdparams' file.",
+                        exit=True)
         pretrained_dir = osp.join(save_dir, 'pretrain')
         self.net_initialize(
             pretrain_weights=pretrain_weights,
@@ -380,31 +384,41 @@ class BaseDetector(BaseModel):
 
         if metric is None:
             if not hasattr(self, 'metric'):
-                if eval_dataset.__class__.__name__ == 'VOCDetection':
-                    self.metric = 'voc'
-                elif eval_dataset.__class__.__name__ == 'CocoDetection':
+                if eval_dataset.__class__.__name__ == 'CocoDetection':
                     self.metric = 'coco'
+                elif eval_dataset.__class__.__name__ == 'VOCDetection':
+                    self.metric = 'voc'
         else:
             assert metric.lower() in ['coco', 'voc'], \
-                "Evaluation metric {} is not supported, please choose form 'COCO' and 'VOC'"
+                    "Evaluation metric {} is not supported, please choose form 'COCO' and 'VOC'"
             self.metric = metric.lower()
 
-        if self.metric == 'voc':
+        if self.metric == 'coco':
+            eval_dataset.data_fields = (
+                {
+                    'im_id',
+                    'image_shape',
+                    'image',
+                    'gt_bbox',
+                    'gt_class',
+                    'gt_poly',
+                    'is_crowd',
+                }
+                if self.__class__.__name__ == 'MaskRCNN'
+                else {
+                    'im_id',
+                    'image_shape',
+                    'image',
+                    'gt_bbox',
+                    'gt_class',
+                    'is_crowd',
+                }
+            )
+        elif self.metric == 'voc':
             eval_dataset.data_fields = {
                 'im_id', 'image_shape', 'image', 'gt_bbox', 'gt_class',
                 'difficult'
             }
-        elif self.metric == 'coco':
-            if self.__class__.__name__ == 'MaskRCNN':
-                eval_dataset.data_fields = {
-                    'im_id', 'image_shape', 'image', 'gt_bbox', 'gt_class',
-                    'gt_poly', 'is_crowd'
-                }
-            else:
-                eval_dataset.data_fields = {
-                    'im_id', 'image_shape', 'image', 'gt_bbox', 'gt_class',
-                    'is_crowd'
-                }
         eval_dataset.batch_transforms = self._compose_batch_transform(
             eval_dataset.transforms, mode='eval')
         arrange_transforms(
@@ -415,11 +429,11 @@ class BaseDetector(BaseModel):
         self.net.eval()
         nranks = paddle.distributed.get_world_size()
         local_rank = paddle.distributed.get_rank()
-        if nranks > 1:
-            # Initialize parallel environment if not done.
-            if not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized(
-            ):
-                paddle.distributed.init_parallel_env()
+        if (
+            nranks > 1
+            and not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized()
+        ):
+            paddle.distributed.init_parallel_env()
 
         if batch_size > 1:
             logging.warning(
@@ -447,10 +461,10 @@ class BaseDetector(BaseModel):
                     classwise=False)
             scores = collections.OrderedDict()
             logging.info(
-                "Start to evaluate(total_samples={}, total_steps={})...".
-                format(eval_dataset.num_samples, eval_dataset.num_samples))
+                f"Start to evaluate(total_samples={eval_dataset.num_samples}, total_steps={eval_dataset.num_samples})..."
+            )
             with paddle.no_grad():
-                for step, data in enumerate(self.eval_data_loader):
+                for data in self.eval_data_loader:
                     outputs = self.run(self.net, data, 'eval')
                     eval_metric.update(data, outputs)
                 eval_metric.accumulate()
@@ -458,9 +472,7 @@ class BaseDetector(BaseModel):
                 scores.update(eval_metric.get())
                 eval_metric.reset()
 
-            if return_details:
-                return scores, self.eval_details
-            return scores
+            return (scores, self.eval_details) if return_details else scores
 
     def predict(self, img_file, transforms=None):
         """
@@ -487,11 +499,7 @@ class BaseDetector(BaseModel):
             raise Exception("transforms need to be defined, now is None.")
         if transforms is None:
             transforms = self.test_transforms
-        if isinstance(img_file, (str, np.ndarray)):
-            images = [img_file]
-        else:
-            images = img_file
-
+        images = [img_file] if isinstance(img_file, (str, np.ndarray)) else img_file
         batch_samples = self._preprocess(images, transforms)
         self.net.eval()
         outputs = self.run(self.net, batch_samples, 'test')
@@ -504,7 +512,7 @@ class BaseDetector(BaseModel):
     def _preprocess(self, images, transforms):
         arrange_transforms(
             model_type=self.model_type, transforms=transforms, mode='test')
-        batch_samples = list()
+        batch_samples = []
         for im in images:
             sample = {'image': im}
             batch_samples.append(transforms(sample))
@@ -523,7 +531,7 @@ class BaseDetector(BaseModel):
             k = 0
             for i in range(len(bbox_nums)):
                 det_nums = bbox_nums[i]
-                for j in range(det_nums):
+                for _ in range(det_nums):
                     dt = bboxes[k]
                     k = k + 1
                     num_id, score, xmin, ymin, xmax, ymax = dt.tolist()
@@ -550,26 +558,25 @@ class BaseDetector(BaseModel):
             k = 0
             for i in range(len(mask_nums)):
                 det_nums = mask_nums[i]
-                for j in range(det_nums):
+                for _ in range(det_nums):
                     mask = masks[k].astype(np.uint8)
                     score = float(bboxes[k][1])
                     label = int(bboxes[k][0])
                     k = k + 1
                     if label == -1:
                         continue
-                    category = self.labels[int(label)]
+                    category = self.labels[label]
                     import pycocotools.mask as mask_util
                     rle = mask_util.encode(
                         np.array(
                             mask[:, :, None], order="F", dtype="uint8"))[0]
-                    if six.PY3:
-                        if 'counts' in rle:
-                            rle['counts'] = rle['counts'].decode("utf8")
+                    if six.PY3 and 'counts' in rle:
+                        rle['counts'] = rle['counts'].decode("utf8")
                     sg_res = {
-                        'category_id': int(label),
+                        'category_id': label,
                         'category': category,
                         'mask': rle,
-                        'score': score
+                        'score': score,
                     }
                     seg_res.append(sg_res)
             infer_result['mask'] = seg_res
@@ -609,9 +616,8 @@ class YOLOv3(BaseDetector):
                 'MobileNetV3_ssld', 'DarkNet53', 'ResNet50_vd_dcn', 'ResNet34'
         ]:
             raise ValueError(
-                "backbone: {} is not supported. Please choose one of "
-                "('MobileNetV1', 'MobileNetV1_ssld', 'MobileNetV3', 'MobileNetV3_ssld', 'DarkNet53', 'ResNet50_vd_dcn', 'ResNet34')".
-                format(backbone))
+                f"backbone: {backbone} is not supported. Please choose one of ('MobileNetV1', 'MobileNetV1_ssld', 'MobileNetV3', 'MobileNetV3_ssld', 'DarkNet53', 'ResNet50_vd_dcn', 'ResNet34')"
+            )
 
         if paddlex.env_info['place'] == 'gpu' and paddlex.env_info[
                 'num'] > 1 and not os.environ.get('PADDLEX_EXPORT_STAGE'):
@@ -692,49 +698,45 @@ class YOLOv3(BaseDetector):
             ]
         else:
             default_batch_transforms = [_BatchPadding(pad_to_stride=-1)]
-        if mode == 'eval' and self.metric == 'voc':
-            collate_batch = False
-        else:
-            collate_batch = True
-
+        collate_batch = mode != 'eval' or self.metric != 'voc'
         custom_batch_transforms = []
-        for i, op in enumerate(transforms.transforms):
+        for op in transforms.transforms:
             if isinstance(op, (BatchRandomResize, BatchRandomResizeByShort)):
                 if mode != 'train':
                     raise Exception(
-                        "{} cannot be present in the {} transforms. ".format(
-                            op.__class__.__name__, mode) +
-                        "Please check the {} transforms.".format(mode))
+                        f"{op.__class__.__name__} cannot be present in the {mode} transforms. "
+                        + f"Please check the {mode} transforms."
+                    )
                 custom_batch_transforms.insert(0, copy.deepcopy(op))
 
-        batch_transforms = BatchCompose(
+        return BatchCompose(
             custom_batch_transforms + default_batch_transforms,
-            collate_batch=collate_batch)
-
-        return batch_transforms
+            collate_batch=collate_batch,
+        )
 
     def _fix_transforms_shape(self, image_shape):
-        if hasattr(self, 'test_transforms'):
-            if self.test_transforms is not None:
-                has_resize_op = False
-                resize_op_idx = -1
-                normalize_op_idx = len(self.test_transforms.transforms)
-                for idx, op in enumerate(self.test_transforms.transforms):
-                    name = op.__class__.__name__
-                    if name == 'Resize':
-                        has_resize_op = True
-                        resize_op_idx = idx
-                    if name == 'Normalize':
-                        normalize_op_idx = idx
+        if not hasattr(self, 'test_transforms'):
+            return
+        if self.test_transforms is not None:
+            has_resize_op = False
+            resize_op_idx = -1
+            normalize_op_idx = len(self.test_transforms.transforms)
+            for idx, op in enumerate(self.test_transforms.transforms):
+                name = op.__class__.__name__
+                if name == 'Normalize':
+                    normalize_op_idx = idx
 
-                if not has_resize_op:
-                    self.test_transforms.transforms.insert(
-                        normalize_op_idx,
-                        Resize(
-                            target_size=image_shape, interp='CUBIC'))
-                else:
-                    self.test_transforms.transforms[
-                        resize_op_idx].target_size = image_shape
+                elif name == 'Resize':
+                    has_resize_op = True
+                    resize_op_idx = idx
+            if not has_resize_op:
+                self.test_transforms.transforms.insert(
+                    normalize_op_idx,
+                    Resize(
+                        target_size=image_shape, interp='CUBIC'))
+            else:
+                self.test_transforms.transforms[
+                    resize_op_idx].target_size = image_shape
 
 
 class FasterRCNN(BaseDetector):

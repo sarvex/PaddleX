@@ -32,10 +32,9 @@ def dataset_split(dataset_dir, dataset_format, val_value, test_value,
         train_num, val_num, test_num = split_imagenet_dataset(
             dataset_dir, val_value, test_value, save_dir)
     else:
-        raise Exception("Dataset format {} is not supported.".format(
-            dataset_format))
+        raise Exception(f"Dataset format {dataset_format} is not supported.")
     logging.info("Dataset split done.")
-    logging.info("Train samples: {}".format(train_num))
-    logging.info("Eval samples: {}".format(val_num))
-    logging.info("Test samples: {}".format(test_num))
-    logging.info("Split files saved in {}".format(save_dir))
+    logging.info(f"Train samples: {train_num}")
+    logging.info(f"Eval samples: {val_num}")
+    logging.info(f"Test samples: {test_num}")
+    logging.info(f"Split files saved in {save_dir}")

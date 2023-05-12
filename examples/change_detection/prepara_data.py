@@ -49,7 +49,7 @@ im2_file_list = sorted(
 label_file_list = sorted(
     label_file_list, key=lambda k: int(k.split('test')[-1].split('_')[0]))
 
-file_list = list()
+file_list = []
 for im1_file, im2_file, label_file in zip(im1_file_list, im2_file_list,
                                           label_file_list):
     im1_file = osp.join(image1_dir, im1_file)
@@ -72,12 +72,10 @@ for i, item in enumerate(file_list):
     # 生成原图的file_list
     im1_file, im2_file, label_file = item[:]
     mode = 'w' if i in [0, train_num] else 'a'
-    with open(
-            osp.join(change_det_dataset, '{}_list.txt'.format(set_name)),
-            mode) as f:
-        f.write("T1/{} T2/{} labels_change/{}\n".format(
-            osp.split(im1_file)[-1],
-            osp.split(im2_file)[-1], osp.split(label_file)[-1]))
+    with open(osp.join(change_det_dataset, f'{set_name}_list.txt'), mode) as f:
+        f.write(
+            f"T1/{osp.split(im1_file)[-1]} T2/{osp.split(im2_file)[-1]} labels_change/{osp.split(label_file)[-1]}\n"
+        )
 
     im1 = cv2.imread(im1_file)
     im2 = cv2.imread(im2_file)
@@ -100,24 +98,15 @@ for i, item in enumerate(file_list):
             lower = min(h + tile_size[1], H)
             tile_im1 = im1[upper:lower, left:right, :]
             tile_im2 = im2[upper:lower, left:right, :]
-            cv2.imwrite(
-                osp.join(tiled_image_dir,
-                         "{}_{}.bmp".format(im1_name, tile_id)), tile_im1)
-            cv2.imwrite(
-                osp.join(tiled_image_dir,
-                         "{}_{}.bmp".format(im2_name, tile_id)), tile_im2)
+            cv2.imwrite(osp.join(tiled_image_dir, f"{im1_name}_{tile_id}.bmp"), tile_im1)
+            cv2.imwrite(osp.join(tiled_image_dir, f"{im2_name}_{tile_id}.bmp"), tile_im2)
             cut_label = label[upper:lower, left:right]
-            cv2.imwrite(
-                osp.join(tiled_anno_dir,
-                         "{}_{}.png".format(label_name, tile_id)), cut_label)
+            cv2.imwrite(osp.join(tiled_anno_dir, f"{label_name}_{tile_id}.png"), cut_label)
             mode = 'w' if i in [0, train_num] and tile_id == 1 else 'a'
-            with open(
-                    osp.join(tiled_dataset, '{}_list.txt'.format(set_name)),
-                    mode) as f:
+            with open(osp.join(tiled_dataset, f'{set_name}_list.txt'), mode) as f:
                 f.write(
-                    "JPEGImages/{}_{}.bmp JPEGImages/{}_{}.bmp Annotations/{}_{}.png\n".
-                    format(im1_name, tile_id, im2_name, tile_id, label_name,
-                           tile_id))
+                    f"JPEGImages/{im1_name}_{tile_id}.bmp JPEGImages/{im2_name}_{tile_id}.bmp Annotations/{label_name}_{tile_id}.png\n"
+                )
             tile_id += 1
 
 # 生成labels.txt
@@ -125,6 +114,5 @@ label_list = ['unchanged', 'changed']
 for i, label in enumerate(label_list):
     mode = 'w' if i == 0 else 'a'
     with open(osp.join(tiled_dataset, 'labels.txt'), 'a') as f:
-        name = "{}\n".format(label) if i < len(
-            label_list) - 1 else "{}".format(label)
+        name = f"{label}\n" if i < len(label_list) - 1 else f"{label}"
         f.write(name)

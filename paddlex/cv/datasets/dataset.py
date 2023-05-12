@@ -32,9 +32,7 @@ class EndSignal():
 def is_pic(img_name):
     valid_suffix = ['JPEG', 'jpeg', 'JPG', 'jpg', 'BMP', 'bmp', 'PNG', 'png']
     suffix = img_name.split('.')[-1]
-    if suffix not in valid_suffix:
-        return False
-    return True
+    return suffix in valid_suffix
 
 
 def is_valid(sample):
@@ -52,10 +50,9 @@ def is_valid(sample):
 
 
 def get_encoding(path):
-    f = open(path, 'rb')
-    data = f.read()
-    file_encoding = chardet.detect(data).get('encoding')
-    f.close()
+    with open(path, 'rb') as f:
+        data = f.read()
+        file_encoding = chardet.detect(data).get('encoding')
     return file_encoding
 
 
@@ -131,8 +128,7 @@ def multithread_reader(mapper,
                     yield batch_data
                     batch_data = []
         if not drop_last and len(batch_data) != 0:
-            batch_data = generate_minibatch(batch_data, mapper=mapper)
-            yield batch_data
+            yield generate_minibatch(batch_data, mapper=mapper)
             batch_data = []
 
     return xreader
@@ -178,7 +174,7 @@ def multiprocess_reader(mapper,
             p.start()
 
         finish_num = 0
-        batch_data = list()
+        batch_data = []
         while finish_num < num_workers:
             sample = queue.get()
             if isinstance(sample, EndSignal):
@@ -192,8 +188,7 @@ def multiprocess_reader(mapper,
                     yield batch_data
                     batch_data = []
         if len(batch_data) != 0 and not drop_last:
-            batch_data = generate_minibatch(batch_data, mapper=mapper)
-            yield batch_data
+            yield generate_minibatch(batch_data, mapper=mapper)
             batch_data = []
 
     return queue_reader
@@ -262,7 +257,7 @@ class Dataset:
                  shuffle=False):
         if num_workers == 'auto':
             import multiprocessing as mp
-            num_workers = mp.cpu_count() // 2 if mp.cpu_count() // 2 < 8 else 8
+            num_workers = min(mp.cpu_count() // 2, 8)
         if platform.platform().startswith("Darwin") or platform.platform(
         ).startswith("Windows"):
             parallel_method = 'thread'
@@ -295,7 +290,7 @@ class Dataset:
     def set_num_samples(self, num_samples):
         if num_samples > len(self.file_list):
             logging.warning(
-                "You want set num_samples to {}, but your dataset only has {} samples, so we will keep your dataset num_samples as {}"
-                .format(num_samples, len(self.file_list), len(self.file_list)))
+                f"You want set num_samples to {num_samples}, but your dataset only has {len(self.file_list)} samples, so we will keep your dataset num_samples as {len(self.file_list)}"
+            )
             num_samples = len(self.file_list)
         self.num_samples = num_samples

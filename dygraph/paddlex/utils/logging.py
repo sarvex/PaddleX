@@ -31,9 +31,13 @@ def log(level=2, message="", use_color=False):
         current_time = time.strftime("%Y-%m-%d %H:%M:%S", time_array)
         if paddlex.log_level >= level:
             if use_color:
-                print("\033[1;31;40m{} [{}]\t{}\033[0m".format(
-                    current_time, levels[level], message).encode("utf-8")
-                      .decode("latin1"))
+                print(
+                    f"\033[1;31;40m{current_time} [{levels[level]}]\t{message}\033[0m".encode(
+                        "utf-8"
+                    ).decode(
+                        "latin1"
+                    )
+                )
             else:
                 print("{} [{}]\t{}".format(current_time, levels[
                     level], message).encode("utf-8").decode("latin1"))

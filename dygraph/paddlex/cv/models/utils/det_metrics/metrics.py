@@ -59,7 +59,7 @@ class VOCMetric(Metric):
                  is_bbox_normalized=False,
                  evaluate_difficult=False,
                  classwise=False):
-        self.cid2cname = {i: name for i, name in enumerate(labels)}
+        self.cid2cname = dict(enumerate(labels))
         self.coco_gt = coco_gt
         self.clsid2catid = {
             i: cat['id']
@@ -147,11 +147,9 @@ class VOCMetric(Metric):
 
     def get(self):
         map_stat = 100. * self.detection_map.get_map()
-        stats = {
-            "mAP({:.2f}, {})".format(self.overlap_thresh, self.map_type):
-            map_stat
+        return {
+            "mAP({:.2f}, {})".format(self.overlap_thresh, self.map_type): map_stat
         }
-        return stats
 
 
 class COCOMetric(Metric):
@@ -175,11 +173,10 @@ class COCOMetric(Metric):
         self.eval_stats = {}
 
     def update(self, inputs, outputs):
-        outs = {}
-        # outputs Tensor -> numpy.ndarray
-        for k, v in outputs.items():
-            outs[k] = v.numpy() if isinstance(v, paddle.Tensor) else v
-
+        outs = {
+            k: v.numpy() if isinstance(v, paddle.Tensor) else v
+            for k, v in outputs.items()
+        }
         im_id = inputs['im_id']
         outs['im_id'] = im_id.numpy() if isinstance(im_id,
                                                     paddle.Tensor) else im_id

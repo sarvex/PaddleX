@@ -61,7 +61,7 @@ def dict2str(dict_input):
             v = round(float(v), 6)
         except:
             pass
-        out = out + '{}={}, '.format(k, v)
+        out = f'{out}{k}={v}, '
     return out.strip(', ')
 
 
@@ -76,7 +76,7 @@ def evaluate(args):
 
     model = pdx.load_model(args.model_dir)
     metrics = model.evaluate(eval_dataset, args.batch_size)
-    logging.info('[EVAL] Finished, {} .'.format(dict2str(metrics)))
+    logging.info(f'[EVAL] Finished, {dict2str(metrics)} .')
 
 
 if __name__ == '__main__':

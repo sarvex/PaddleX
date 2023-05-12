@@ -41,8 +41,7 @@ class BaseSegmenter(BaseModel):
         self.init_params = locals()
         super(BaseSegmenter, self).__init__('segmenter')
         if not hasattr(paddleseg.models, model_name):
-            raise Exception("ERROR: There's no model named {}.".format(
-                model_name))
+            raise Exception(f"ERROR: There's no model named {model_name}.")
         self.model_name = model_name
         self.num_classes = num_classes
         self.use_mixed_loss = use_mixed_loss
@@ -52,32 +51,31 @@ class BaseSegmenter(BaseModel):
         self.find_unused_parameters = True
 
     def build_net(self, **params):
-        # TODO: when using paddle.utils.unique_name.guard,
-        # DeepLabv3p and HRNet will raise a error
-        net = paddleseg.models.__dict__[self.model_name](
-            num_classes=self.num_classes, **params)
-        return net
+        return paddleseg.models.__dict__[self.model_name](
+            num_classes=self.num_classes, **params
+        )
 
     def _fix_transforms_shape(self, image_shape):
-        if hasattr(self, 'test_transforms'):
-            if self.test_transforms is not None:
-                has_resize_op = False
-                resize_op_idx = -1
-                normalize_op_idx = len(self.test_transforms.transforms)
-                for idx, op in enumerate(self.test_transforms.transforms):
-                    name = op.__class__.__name__
-                    if name == 'Normalize':
-                        normalize_op_idx = idx
-                    if 'Resize' in name:
-                        has_resize_op = True
-                        resize_op_idx = idx
+        if not hasattr(self, 'test_transforms'):
+            return
+        if self.test_transforms is not None:
+            has_resize_op = False
+            resize_op_idx = -1
+            normalize_op_idx = len(self.test_transforms.transforms)
+            for idx, op in enumerate(self.test_transforms.transforms):
+                name = op.__class__.__name__
+                if name == 'Normalize':
+                    normalize_op_idx = idx
+                if 'Resize' in name:
+                    has_resize_op = True
+                    resize_op_idx = idx
 
-                if not has_resize_op:
-                    self.test_transforms.transforms.insert(
-                        normalize_op_idx, Resize(target_size=image_shape))
-                else:
-                    self.test_transforms.transforms[resize_op_idx] = Resize(
-                        target_size=image_shape)
+            if not has_resize_op:
+                self.test_transforms.transforms.insert(
+                    normalize_op_idx, Resize(target_size=image_shape))
+            else:
+                self.test_transforms.transforms[resize_op_idx] = Resize(
+                    target_size=image_shape)
 
     def _get_test_inputs(self, image_shape):
         if image_shape is not None:
@@ -87,11 +85,7 @@ class BaseSegmenter(BaseModel):
         else:
             image_shape = [None, 3, -1, -1]
         self.fixed_input_shape = image_shape
-        input_spec = [
-            InputSpec(
-                shape=image_shape, name='image', dtype='float32')
-        ]
-        return input_spec
+        return [InputSpec(shape=image_shape, name='image', dtype='float32')]
 
     def run(self, net, inputs, mode):
         net_out = net(inputs[0])
@@ -241,8 +235,8 @@ class BaseSegmenter(BaseModel):
             if pretrain_weights not in seg_pretrain_weights_dict[
                     self.model_name]:
                 logging.warning(
-                    "Path of pretrain_weights('{}') does not exist!".format(
-                        pretrain_weights))
+                    f"Path of pretrain_weights('{pretrain_weights}') does not exist!"
+                )
                 logging.warning("Pretrain_weights is forcibly set to '{}'. "
                                 "If don't want to use pretrain weights, "
                                 "set pretrain_weights to be None.".format(
@@ -357,20 +351,19 @@ class BaseSegmenter(BaseModel):
         self.net.eval()
         nranks = paddle.distributed.get_world_size()
         local_rank = paddle.distributed.get_rank()
-        if nranks > 1:
-            # Initialize parallel environment if not done.
-            if not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized(
-            ):
-                paddle.distributed.init_parallel_env()
+        if (
+            nranks > 1
+            and not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized()
+        ):
+            paddle.distributed.init_parallel_env()
 
         batch_size_each_card = get_single_card_bs(batch_size)
         if batch_size_each_card > 1:
             batch_size_each_card = 1
             batch_size = batch_size_each_card * paddlex.env_info['num']
             logging.warning(
-                "Segmenter only supports batch_size=1 for each gpu/cpu card " \
-                "during evaluation, so batch_size " \
-                "is forcibly set to {}.".format(batch_size))
+                f"Segmenter only supports batch_size=1 for each gpu/cpu card during evaluation, so batch_size is forcibly set to {batch_size}."
+            )
         self.eval_data_loader = self.build_data_loader(
             eval_dataset, batch_size=batch_size, mode='eval')
 
@@ -379,9 +372,8 @@ class BaseSegmenter(BaseModel):
         label_area_all = 0
         conf_mat_all = []
         logging.info(
-            "Start to evaluate(total_samples={}, total_steps={})...".format(
-                eval_dataset.num_samples,
-                math.ceil(eval_dataset.num_samples * 1.0 / batch_size)))
+            f"Start to evaluate(total_samples={eval_dataset.num_samples}, total_steps={math.ceil(eval_dataset.num_samples * 1.0 / batch_size)})..."
+        )
         with paddle.no_grad():
             for step, data in enumerate(self.eval_data_loader):
                 data.append(eval_dataset.transforms.transforms)
@@ -465,10 +457,7 @@ class BaseSegmenter(BaseModel):
             raise Exception("transforms need to be defined, now is None.")
         if transforms is None:
             transforms = self.test_transforms
-        if isinstance(img_file, (str, np.ndarray)):
-            images = [img_file]
-        else:
-            images = img_file
+        images = [img_file] if isinstance(img_file, (str, np.ndarray)) else img_file
         batch_im, batch_origin_shape = self._preprocess(images, transforms,
                                                         self.model_type)
         self.net.eval()
@@ -479,21 +468,20 @@ class BaseSegmenter(BaseModel):
         score_map = outputs['score_map']
         score_map = score_map.numpy().astype('float32')
         if isinstance(img_file, list) and len(img_file) > 1:
-            prediction = [{
-                'label_map': l,
-                'score_map': s
-            } for l, s in zip(label_map, score_map)]
+            return [
+                {'label_map': l, 'score_map': s}
+                for l, s in zip(label_map, score_map)
+            ]
         elif isinstance(img_file, list):
-            prediction = [{'label_map': label_map, 'score_map': score_map}]
+            return [{'label_map': label_map, 'score_map': score_map}]
         else:
-            prediction = {'label_map': label_map, 'score_map': score_map}
-        return prediction
+            return {'label_map': label_map, 'score_map': score_map}
 
     def _preprocess(self, images, transforms, model_type):
         arrange_transforms(
             model_type=model_type, transforms=transforms, mode='test')
-        batch_im = list()
-        batch_ori_shape = list()
+        batch_im = []
+        batch_ori_shape = []
         for im in images:
             sample = {'image': im}
             if isinstance(sample['image'], str):
@@ -508,9 +496,9 @@ class BaseSegmenter(BaseModel):
 
     @staticmethod
     def get_transforms_shape_info(batch_ori_shape, transforms):
-        batch_restore_list = list()
+        batch_restore_list = []
         for ori_shape in batch_ori_shape:
-            restore_list = list()
+            restore_list = []
             h, w = ori_shape[0], ori_shape[1]
             for op in transforms:
                 if op.__class__.__name__ in ['Resize', 'ResizeByShort']:
@@ -525,7 +513,7 @@ class BaseSegmenter(BaseModel):
     def _postprocess(self, batch_pred, batch_origin_shape, transforms):
         batch_restore_list = BaseSegmenter.get_transforms_shape_info(
             batch_origin_shape, transforms)
-        results = list()
+        results = []
         for pred, restore_list in zip(batch_pred, batch_restore_list):
             pred = paddle.unsqueeze(pred, axis=0)
             for item in restore_list[::-1]:
@@ -535,8 +523,6 @@ class BaseSegmenter(BaseModel):
                     pred = F.interpolate(pred, (h, w), mode='nearest')
                 elif item[0] == 'padding':
                     pred = pred[:, :, 0:h, 0:w]
-                else:
-                    pass
             results.append(pred)
         batch_pred = paddle.concat(results, axis=0)
         return batch_pred
@@ -569,8 +555,8 @@ class DeepLabV3P(BaseSegmenter):
         self.backbone_name = backbone
         if backbone not in ['ResNet50_vd', 'ResNet101_vd']:
             raise ValueError(
-                "backbone: {} is not supported. Please choose one of "
-                "('ResNet50_vd', 'ResNet101_vd')".format(backbone))
+                f"backbone: {backbone} is not supported. Please choose one of ('ResNet50_vd', 'ResNet101_vd')"
+            )
         with DisablePrint():
             backbone = getattr(paddleseg.models, backbone)(
                 output_stride=output_stride)
@@ -609,9 +595,9 @@ class HRNet(BaseSegmenter):
                  align_corners=False):
         if width not in (18, 48):
             raise ValueError(
-                "width={} is not supported, please choose from [18, 48]".
-                format(width))
-        self.backbone_name = 'HRNet_W{}'.format(width)
+                f"width={width} is not supported, please choose from [18, 48]"
+            )
+        self.backbone_name = f'HRNet_W{width}'
         with DisablePrint():
             backbone = getattr(paddleseg.models, self.backbone_name)(
                 align_corners=align_corners)

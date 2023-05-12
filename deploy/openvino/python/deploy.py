@@ -27,11 +27,11 @@ class Predictor:
     def __init__(self, model_xml, model_yaml, device="CPU"):
         self.device = device
         if not osp.exists(model_xml):
-            print("model xml file is not exists in {}".format(model_xml))
+            print(f"model xml file is not exists in {model_xml}")
         self.model_xml = model_xml
-        self.model_bin = osp.splitext(model_xml)[0] + ".bin"
+        self.model_bin = f"{osp.splitext(model_xml)[0]}.bin"
         if not osp.exists(model_yaml):
-            print("model yaml file is not exists in {}".format(model_yaml))
+            print(f"model yaml file is not exists in {model_yaml}")
         with open(model_yaml) as f:
             self.info = yaml.load(f.read(), Loader=yaml.Loader)
         self.model_type = self.info['_Attributes']['model_type']
@@ -39,10 +39,7 @@ class Predictor:
         self.num_classes = self.info['_Attributes']['num_classes']
         self.labels = self.info['_Attributes']['labels']
         transforms_mode = self.info.get('TransformsMode', 'RGB')
-        if transforms_mode == 'RGB':
-            to_rgb = True
-        else:
-            to_rgb = False
+        to_rgb = transforms_mode == 'RGB'
         self.transforms = self.build_transforms(self.info['Transforms'],
                                                 to_rgb)
         self.predictor, self.net = self.create_predictor()
@@ -54,8 +51,7 @@ class Predictor:
         #initialization for specified device
         print("Creating Inference Engine")
         ie = IECore()
-        print("Loading network files:\n\t{}\n\t{}".format(self.model_xml,
-                                                          self.model_bin))
+        print(f"Loading network files:\n\t{self.model_xml}\n\t{self.model_bin}")
         net = ie.read_network(model=self.model_xml, weights=self.model_bin)
         net.batch_size = 1
         network_config = {}
@@ -72,14 +68,14 @@ class Predictor:
             import transforms.det_transforms as transforms
         elif self.model_type == "segmenter":
             import transforms.seg_transforms as transforms
-        op_list = list()
+        op_list = []
         for op_info in transforms_info:
             op_name = list(op_info.keys())[0]
             op_attr = op_info[op_name]
             if not hasattr(transforms, op_name):
                 raise Exception(
-                    "There's no operator named '{}' in transforms of {}".
-                    format(op_name, self.model_type))
+                    f"There's no operator named '{op_name}' in transforms of {self.model_type}"
+                )
             op_list.append(getattr(transforms, op_name)(**op_attr))
         eval_transforms = transforms.Compose(op_list)
         if hasattr(eval_transforms, 'to_rgb'):
@@ -96,11 +92,10 @@ class Predictor:
             arrange_transform = transforms.ArrangeSegmenter
         elif self.model_type == 'detector':
             import transforms.det_transforms as transforms
-            arrange_name = 'Arrange{}'.format(self.model_name)
+            arrange_name = f'Arrange{self.model_name}'
             arrange_transform = getattr(transforms, arrange_name)
         else:
-            raise Exception("Unrecognized model type: {}".format(
-                self.model_type))
+            raise Exception(f"Unrecognized model type: {self.model_type}")
         if type(eval_transforms.transforms[-1]).__name__.startswith('Arrange'):
             eval_transforms.transforms[-1] = arrange_transform(mode='test')
         else:
@@ -116,8 +111,6 @@ class Predictor:
                     feed_dict[name] = preprocessed_input['im_size']
                 elif (len(inputs[name].shape) == 4):
                     feed_dict[name] = preprocessed_input['image']
-                else:
-                    pass
         else:
             input_blob = next(iter(self.net.inputs))
             feed_dict[input_blob] = preprocessed_input['image']
@@ -130,7 +123,7 @@ class Predictor:
         return res
 
     def preprocess(self, image):
-        res = dict()
+        res = {}
         if self.model_type == "classifier":
             im = self.transforms(image)
             im = np.expand_dims(im, axis=0).copy()
@@ -194,13 +187,7 @@ class Predictor:
         for name in outputs:
             if (len(outputs[name].shape) == 2):
                 output = preds[name]
-        result = []
-        for out in output:
-            if (out[0] >= 0):
-                result.append(out.tolist())
-            else:
-                pass
-        return result
+        return [out.tolist() for out in output if (out[0] >= 0)]
 
     def predict(self, image, topk=1, threshold=0.5):
         preprocessed_input = self.preprocess(image)

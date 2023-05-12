@@ -28,7 +28,6 @@ from . import logging
 def get_environ_info():
     """collect environment information"""
 
-    env_info = dict()
     # TODO is_compiled_with_cuda() has not been moved
     compiled_with_cuda = paddle.is_compiled_with_cuda()
     if compiled_with_cuda:
@@ -39,8 +38,7 @@ def get_environ_info():
         if gpu_nums == 0:
             os.environ['CUDA_VISIBLE_DEVICES'] = ''
     place = 'gpu' if compiled_with_cuda and gpu_nums else 'cpu'
-    env_info['place'] = place
-    env_info['num'] = int(os.environ.get('CPU_NUM', 1))
+    env_info = {'place': place, 'num': int(os.environ.get('CPU_NUM', 1))}
     if place == 'gpu':
         env_info['num'] = gpu_nums
 
@@ -48,12 +46,12 @@ def get_environ_info():
 
 
 def get_num_workers(num_workers):
-    if not platform.system() == 'Linux':
+    if platform.system() != 'Linux':
         # Dataloader with multi-process model is not supported
         # on MacOS and Windows currently.
         return 0
     if num_workers == 'auto':
-        num_workers = mp.cpu_count() // 2 if mp.cpu_count() // 2 < 2 else 2
+        num_workers = min(mp.cpu_count() // 2, 2)
     return num_workers
 
 

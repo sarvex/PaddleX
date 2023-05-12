@@ -31,8 +31,8 @@ class Seg:
     def __init__(self, data_dir, file_list, label_list):
         self.data_dir = data_dir
         self.file_list_path = file_list
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
         with open(label_list, encoding=get_encoding(label_list)) as f:
             for line in f:
                 item = line.strip()
@@ -43,18 +43,16 @@ class Seg:
                 items = line.strip().split()
                 if len(items) > 2:
                     raise Exception(
-                        "A space is defined as the separator, but it exists in image or label name {}."
-                        .format(line))
+                        f"A space is defined as the separator, but it exists in image or label name {line}."
+                    )
                 items[0] = path_normalization(items[0])
                 items[1] = path_normalization(items[1])
                 full_path_im = osp.join(data_dir, items[0])
                 full_path_label = osp.join(data_dir, items[1])
                 if not osp.exists(full_path_im):
-                    raise IOError('The image file {} is not exist!'.format(
-                        full_path_im))
+                    raise IOError(f'The image file {full_path_im} is not exist!')
                 if not osp.exists(full_path_label):
-                    raise IOError('The image file {} is not exist!'.format(
-                        full_path_label))
+                    raise IOError(f'The image file {full_path_label} is not exist!')
                 self.file_list.append([full_path_im, full_path_label])
         self.num_samples = len(self.file_list)
 
@@ -63,31 +61,30 @@ class Seg:
         max_width = max(self.im_width_list)
         min_height = min(self.im_height_list)
         min_width = min(self.im_width_list)
-        shape_info = {
+        return {
             'max_height': max_height,
             'max_width': max_width,
             'min_height': min_height,
             'min_width': min_width,
         }
-        return shape_info
 
     def _get_label_pixel_info(self):
         pixel_num = np.dot(self.im_height_list, self.im_width_list)
-        label_pixel_info = dict()
+        label_pixel_info = {}
         for label_value, label_value_num in zip(self.label_value_list,
                                                 self.label_value_num_list):
             for v, n in zip(label_value, label_value_num):
-                if v not in label_pixel_info.keys():
-                    label_pixel_info[v] = [n, float(n) / float(pixel_num)]
-                else:
+                if v in label_pixel_info:
                     label_pixel_info[v][0] += n
                     label_pixel_info[v][1] += float(n) / float(pixel_num)
 
+                else:
+                    label_pixel_info[v] = [n, float(n) / float(pixel_num)]
         return label_pixel_info
 
     def _get_image_pixel_info(self):
-        channel = max([len(im_value) for im_value in self.im_value_list])
-        im_pixel_info = [dict() for c in range(channel)]
+        channel = max(len(im_value) for im_value in self.im_value_list)
+        im_pixel_info = [{} for _ in range(channel)]
         for im_value, im_value_num in zip(self.im_value_list,
                                           self.im_value_num_list):
             for c in range(channel):
@@ -153,17 +150,17 @@ class Seg:
                 id] = [image[:, :, c].std() for c in range(self.channel_num)]
 
     def analysis(self):
-        self.im_mean_list = [[] for i in range(len(self.file_list))]
-        self.im_std_list = [[] for i in range(len(self.file_list))]
-        self.im_value_list = [[] for i in range(len(self.file_list))]
-        self.im_value_num_list = [[] for i in range(len(self.file_list))]
+        self.im_mean_list = [[] for _ in range(len(self.file_list))]
+        self.im_std_list = [[] for _ in range(len(self.file_list))]
+        self.im_value_list = [[] for _ in range(len(self.file_list))]
+        self.im_value_num_list = [[] for _ in range(len(self.file_list))]
         self.im_height_list = np.zeros(len(self.file_list), dtype='int64')
         self.im_width_list = np.zeros(len(self.file_list), dtype='int64')
         self.im_channel_list = np.zeros(len(self.file_list), dtype='int64')
-        self.label_value_list = [[] for i in range(len(self.file_list))]
-        self.label_value_num_list = [[] for i in range(len(self.file_list))]
+        self.label_value_list = [[] for _ in range(len(self.file_list))]
+        self.label_value_num_list = [[] for _ in range(len(self.file_list))]
 
-        num_workers = mp.cpu_count() // 2 if mp.cpu_count() // 2 < 8 else 8
+        num_workers = min(mp.cpu_count() // 2, 8)
         threads = []
         one_worker_file = len(self.file_list) // num_workers
         for i in range(num_workers):
@@ -179,8 +176,9 @@ class Seg:
 
         unique, counts = np.unique(self.im_channel_list, return_counts=True)
         if len(unique) > 1:
-            raise Exception("There are {} kinds of image channels: {}.".format(
-                len(unique), unique[:]))
+            raise Exception(
+                f"There are {len(unique)} kinds of image channels: {unique[:]}."
+            )
         self.channel_num = unique[0]
         shape_info = self._get_shape()
         self.max_height = shape_info['max_height']
@@ -199,15 +197,15 @@ class Seg:
                     log=True)
             plt.xlabel('image pixel value')
             plt.ylabel('number')
-            plt.title('channel={}'.format(c))
+            plt.title(f'channel={c}')
             plt.savefig(
-                osp.join(self.data_dir,
-                         '{}_channel{}_distribute.png'.format(mode, c)),
-                dpi=100)
+                osp.join(self.data_dir, f'{mode}_channel{c}_distribute.png'),
+                dpi=100,
+            )
             plt.close()
 
-        max_im_value = list()
-        min_im_value = list()
+        max_im_value = []
+        min_im_value = []
         for c in range(self.channel_num):
             max_im_value.append(max(self.im_pixel_info[c].keys()))
             min_im_value.append(min(self.im_pixel_info[c].keys()))
@@ -228,44 +226,42 @@ class Seg:
             'max_image_value': self.max_im_value,
             'min_image_value': self.min_im_value
         }
-        saved_pkl_file = osp.join(self.data_dir,
-                                  '{}_infomation.pkl'.format(mode))
+        saved_pkl_file = osp.join(self.data_dir, f'{mode}_infomation.pkl')
         with open(osp.join(saved_pkl_file), 'wb') as f:
             pickle.dump(info, f)
 
         logging.info(
             "############## The analysis results are as follows ##############\n"
         )
-        logging.info("{} samples in file {}\n".format(
-            len(self.file_list), self.file_list_path))
-        logging.info("Minimal image height: {} Minimal image width: {}.\n".
-                     format(self.min_height, self.min_width))
-        logging.info("Maximal image height: {} Maximal image width: {}.\n".
-                     format(self.max_height, self.max_width))
-        logging.info("Image channel is {}.\n".format(self.channel_num))
+        logging.info(f"{len(self.file_list)} samples in file {self.file_list_path}\n")
         logging.info(
-            "Minimal image value: {} Maximal image value: {} (arranged in 0-{} channel order) \n".
-            format(self.min_im_value, self.max_im_value, self.channel_num))
+            f"Minimal image height: {self.min_height} Minimal image width: {self.min_width}.\n"
+        )
         logging.info(
-            "Image pixel distribution of each channel is saved with 'distribute.png' in the {}"
-            .format(self.data_dir))
+            f"Maximal image height: {self.max_height} Maximal image width: {self.max_width}.\n"
+        )
+        logging.info(f"Image channel is {self.channel_num}.\n")
         logging.info(
-            "Image mean value: {} Image standard deviation: {} (normalized by the (max_im_value - min_im_value), arranged in 0-{} channel order).\n".
-            format(im_mean, im_std, self.channel_num))
+            f"Minimal image value: {self.min_im_value} Maximal image value: {self.max_im_value} (arranged in 0-{self.channel_num} channel order) \n"
+        )
+        logging.info(
+            f"Image pixel distribution of each channel is saved with 'distribute.png' in the {self.data_dir}"
+        )
+        logging.info(
+            f"Image mean value: {im_mean} Image standard deviation: {im_std} (normalized by the (max_im_value - min_im_value), arranged in 0-{self.channel_num} channel order).\n"
+        )
         logging.info(
             "Label pixel information is shown in a format of (label_id, the number of label_id, the ratio of label_id):"
         )
         for v, (n, r) in self.label_pixel_info.items():
-            logging.info("({}, {}, {})".format(v, n, r))
+            logging.info(f"({v}, {n}, {r})")
 
-        logging.info("Dataset information is saved in {}".format(
-            saved_pkl_file))
+        logging.info(f"Dataset information is saved in {saved_pkl_file}")
 
     def cal_clipped_mean_std(self, clip_min_value, clip_max_value,
                              data_info_file):
         if not osp.exists(data_info_file):
-            raise Exception("Dataset information file {} does not exist.".
-                            format(data_info_file))
+            raise Exception(f"Dataset information file {data_info_file} does not exist.")
         with open(data_info_file, 'rb') as f:
             im_info = pickle.load(f)
         channel_num = im_info['channel_num']
@@ -276,24 +272,24 @@ class Seg:
         if len(clip_min_value) != channel_num or len(
                 clip_max_value) != channel_num:
             raise Exception(
-                "The length of clip_min_value or clip_max_value should be equal to the number of image channel {}."
-                .format(channle_num))
+                f"The length of clip_min_value or clip_max_value should be equal to the number of image channel {channle_num}."
+            )
         for c in range(channel_num):
             if clip_min_value[c] < min_im_value[c] or clip_min_value[
                     c] > max_im_value[c]:
                 raise Exception(
-                    "Clip_min_value of the channel {} is not in [{}, {}]".
-                    format(c, min_im_value[c], max_im_value[c]))
+                    f"Clip_min_value of the channel {c} is not in [{min_im_value[c]}, {max_im_value[c]}]"
+                )
             if clip_max_value[c] < min_im_value[c] or clip_max_value[
                     c] > max_im_value[c]:
                 raise Exception(
-                    "Clip_max_value of the channel {} is not in [{}, {}]".
-                    format(c, min_im_value[c], self.max_im_value[c]))
+                    f"Clip_max_value of the channel {c} is not in [{min_im_value[c]}, {self.max_im_value[c]}]"
+                )
 
-        self.clipped_im_mean_list = [[] for i in range(len(self.file_list))]
-        self.clipped_im_std_list = [[] for i in range(len(self.file_list))]
+        self.clipped_im_mean_list = [[] for _ in range(len(self.file_list))]
+        self.clipped_im_std_list = [[] for _ in range(len(self.file_list))]
 
-        num_workers = mp.cpu_count() // 2 if mp.cpu_count() // 2 < 8 else 8
+        num_workers = min(mp.cpu_count() // 2, 8)
         threads = []
         one_worker_file = len(self.file_list) // num_workers
         self.channel_num = channel_num
@@ -319,14 +315,16 @@ class Seg:
         im_std = im_std / len(self.file_list)
 
         for c in range(channel_num):
-            clip_pixel_num = 0
             pixel_num = sum(im_pixel_info[c].values())
-            for v, n in im_pixel_info[c].items():
-                if v < clip_min_value[c] or v > clip_max_value[c]:
-                    clip_pixel_num += n
-            logging.info("Channel {}, the ratio of pixels to be clipped = {}".
-                         format(c, clip_pixel_num / pixel_num))
+            clip_pixel_num = sum(
+                n
+                for v, n in im_pixel_info[c].items()
+                if v < clip_min_value[c] or v > clip_max_value[c]
+            )
+            logging.info(
+                f"Channel {c}, the ratio of pixels to be clipped = {clip_pixel_num / pixel_num}"
+            )
 
         logging.info(
-            "Image mean value: {} Image standard deviation: {} (normalized by (clip_max_value - clip_min_value), arranged in 0-{} channel order).\n".
-            format(im_mean, im_std, self.channel_num))
+            f"Image mean value: {im_mean} Image standard deviation: {im_std} (normalized by (clip_max_value - clip_min_value), arranged in 0-{self.channel_num} channel order).\n"
+        )

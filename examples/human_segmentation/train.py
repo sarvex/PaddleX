@@ -136,8 +136,8 @@ def train(args):
             num_classes=args.num_classes, backbone='Xception65')
     else:
         raise ValueError(
-            "--model_type: {} is set wrong, it shold be one of ('HumanSegMobile', "
-            "'HumanSegLite', 'HumanSegServer')".format(args.model_type))
+            f"--model_type: {args.model_type} is set wrong, it shold be one of ('HumanSegMobile', 'HumanSegLite', 'HumanSegServer')"
+        )
     model.train(
         num_epochs=args.num_epochs,
         train_dataset=train_dataset,

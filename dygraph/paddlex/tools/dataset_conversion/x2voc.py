@@ -39,8 +39,8 @@ class X2VOC(object):
         new_image_dir = osp.join(dataset_save_dir, "JPEGImages")
         if osp.exists(new_image_dir):
             raise Exception(
-                "The directory {} is already exist, please remove the directory first".
-                format(new_image_dir))
+                f"The directory {new_image_dir} is already exist, please remove the directory first"
+            )
         os.makedirs(new_image_dir)
         for img_name in os.listdir(image_dir):
             if is_pic(img_name):
@@ -51,8 +51,8 @@ class X2VOC(object):
         xml_dir = osp.join(dataset_save_dir, "Annotations")
         if osp.exists(xml_dir):
             raise Exception(
-                "The directory {} is already exist, please remove the directory first".
-                format(xml_dir))
+                f"The directory {xml_dir} is already exist, please remove the directory first"
+            )
         os.makedirs(xml_dir)
         self.json2xml(new_image_dir, json_dir, xml_dir)
 
@@ -69,7 +69,7 @@ class LabelMe2VOC(X2VOC):
         i = 0
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             i += 1
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
@@ -84,7 +84,7 @@ class LabelMe2VOC(X2VOC):
             node_filename.appendChild(xml_doc.createTextNode(img_name))
             root.appendChild(node_filename)
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                          encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 if 'imageHeight' in json_info and 'imageWidth' in json_info:
                     h = json_info["imageHeight"]
@@ -143,7 +143,7 @@ class LabelMe2VOC(X2VOC):
                     node_box.appendChild(node_ymax)
                     node_obj.appendChild(node_box)
                     root.appendChild(node_obj)
-            with open(osp.join(xml_dir, img_name_part + ".xml"), 'w') as fxml:
+            with open(osp.join(xml_dir, f"{img_name_part}.xml"), 'w') as fxml:
                 xml_doc.writexml(
                     fxml,
                     indent='\t',
@@ -163,7 +163,7 @@ class EasyData2VOC(X2VOC):
         import xml.dom.minidom as minidom
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
@@ -191,7 +191,7 @@ class EasyData2VOC(X2VOC):
             node_size.appendChild(node_depth)
             root.appendChild(node_size)
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                          encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 for shape in json_info["labels"]:
                     label = shape["name"]
@@ -221,7 +221,7 @@ class EasyData2VOC(X2VOC):
                     node_box.appendChild(node_ymax)
                     node_obj.appendChild(node_box)
                     root.appendChild(node_obj)
-            with open(osp.join(xml_dir, img_name_part + ".xml"), 'w') as fxml:
+            with open(osp.join(xml_dir, f"{img_name_part}.xml"), 'w') as fxml:
                 xml_doc.writexml(
                     fxml,
                     indent='\t',

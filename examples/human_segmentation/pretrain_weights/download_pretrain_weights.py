@@ -35,6 +35,6 @@ model_urls = {
 }
 
 if __name__ == "__main__":
-    for model_name, url in model_urls.items():
+    for url in model_urls.values():
         pdx.utils.download_and_decompress(url=url, path=LOCAL_PATH)
     print("Pretrained Model download success!")

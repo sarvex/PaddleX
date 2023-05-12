@@ -56,8 +56,8 @@ class EasyDataCls(ImageNet):
             buffer_size=buffer_size,
             parallel_method=parallel_method,
             shuffle=shuffle)
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
         self._epoch = 0
 
         with open(label_list, encoding=get_encoding(label_list)) as f:
@@ -68,7 +68,7 @@ class EasyDataCls(ImageNet):
         with open(file_list, encoding=get_encoding(file_list)) as f:
             for line in f:
                 img_file, json_file = [osp.join(data_dir, x) \
-                        for x in line.strip().split()[:2]]
+                            for x in line.strip().split()[:2]]
                 img_file = path_normalization(img_file)
                 json_file = path_normalization(json_file)
                 if not is_pic(img_file):
@@ -76,13 +76,11 @@ class EasyDataCls(ImageNet):
                 if not osp.isfile(json_file):
                     continue
                 if not osp.exists(img_file):
-                    raise IOError('The image file {} is not exist!'.format(
-                        img_file))
+                    raise IOError(f'The image file {img_file} is not exist!')
                 with open(json_file, mode='r', \
-                          encoding=get_encoding(json_file)) as j:
+                              encoding=get_encoding(json_file)) as j:
                     json_info = json.load(j)
                 label = json_info['labels'][0]['name']
                 self.file_list.append([img_file, self.labels.index(label)])
         self.num_samples = len(self.file_list)
-        logging.info("{} samples in file {}".format(
-            len(self.file_list), file_list))
+        logging.info(f"{len(self.file_list)} samples in file {file_list}")

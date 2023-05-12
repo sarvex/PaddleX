@@ -61,10 +61,7 @@ def cal_image_level_recall_rate(model, dataset_dir):
 
             positive_num += 1
             results = model.predict(img_file)
-            scores = list()
-            for res in results:
-                scores.append(res['score'])
-            if len(scores) > 0:
+            if scores := [res['score'] for res in results]:
                 tp[0:int(np.round(max(scores) / 0.01)), 0] += 1
     tp = tp / positive_num
     return tp
@@ -93,10 +90,7 @@ def cal_image_level_false_positive_rate(model, negative_dir):
         file = osp.join(negative_dir, file)
         results = model.predict(file)
         negative_num += 1
-        scores = list()
-        for res in results:
-            scores.append(res['score'])
-        if len(scores) > 0:
+        if scores := [res['score'] for res in results]:
             fp[0:int(np.round(max(scores) / 0.01)), 0] += 1
     fp = fp / negative_num
     return fp
@@ -121,8 +115,9 @@ def result2textfile(tp_list, fp_list, save_dir):
         for i in range(100):
             f.write("| {:2f} | {:2f} | {:2f} |\n".format(0.01 * i, tp_list[
                 i, 0], fp_list[i, 0]))
-    print("The numerical score-recall_rate-false_positive_rate is saved as {}".
-          format(tp_fp_list_file))
+    print(
+        f"The numerical score-recall_rate-false_positive_rate is saved as {tp_fp_list_file}"
+    )
 
 
 def result2imagefile(tp_list, fp_list, save_dir):
@@ -173,8 +168,8 @@ def result2imagefile(tp_list, fp_list, save_dir):
     plt.savefig(tp_fp_chart_file, dpi=800)
     plt.close()
     print(
-        "The diagrammatic score-recall_rate-false_positive_rate is saved as {}".
-        format(tp_fp_chart_file))
+        f"The diagrammatic score-recall_rate-false_positive_rate is saved as {tp_fp_chart_file}"
+    )
 
 
 if __name__ == '__main__':

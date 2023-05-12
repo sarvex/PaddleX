@@ -120,8 +120,8 @@ class X2Seg(object):
         new_image_dir = osp.join(dataset_save_dir, "JPEGImages")
         if osp.exists(new_image_dir):
             raise Exception(
-                "The directory {} is already exist, please remove the directory first".
-                format(new_image_dir))
+                f"The directory {new_image_dir} is already exist, please remove the directory first"
+            )
         os.makedirs(new_image_dir)
         for img_name in os.listdir(image_dir):
             if is_pic(img_name):
@@ -152,12 +152,12 @@ class JingLing2Seg(X2Seg):
     def get_labels2ids(self, image_dir, json_dir):
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                          encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 if 'outputs' in json_info:
                     for output in json_info['outputs']['object']:
@@ -169,12 +169,12 @@ class JingLing2Seg(X2Seg):
         color_map = self.get_color_map_list(256)
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                                  encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 data_shapes = []
                 if 'outputs' in json_info:
@@ -182,12 +182,10 @@ class JingLing2Seg(X2Seg):
                         if 'polygon' in output.keys():
                             polygon = output['polygon']
                             name = output['name']
-                            points = []
-                            for i in range(1, int(len(polygon) / 2) + 1):
-                                points.append([
-                                    polygon['x' + str(i)],
-                                    polygon['y' + str(i)]
-                                ])
+                            points = [
+                                [polygon[f'x{str(i)}'], polygon[f'y{str(i)}']]
+                                for i in range(1, len(polygon) // 2 + 1)
+                            ]
                             shape = {
                                 'label': name,
                                 'points': points,
@@ -203,15 +201,14 @@ class JingLing2Seg(X2Seg):
                 img_shape=img_shape,
                 shapes=data_shapes,
                 label_name_to_value=self.labels2ids, )
-            out_png_file = osp.join(png_dir, img_name_part + '.png')
-            if lbl.min() >= 0 and lbl.max() <= 255:
-                lbl_pil = PIL.Image.fromarray(lbl.astype(np.uint8), mode='P')
-                lbl_pil.putpalette(color_map)
-                lbl_pil.save(out_png_file)
-            else:
+            out_png_file = osp.join(png_dir, f'{img_name_part}.png')
+            if lbl.min() < 0 or lbl.max() > 255:
                 raise ValueError(
-                    '[%s] Cannot save the pixel-wise class label as PNG. '
-                    'Please consider using the .npy format.' % out_png_file)
+                    f'[{out_png_file}] Cannot save the pixel-wise class label as PNG. Please consider using the .npy format.'
+                )
+            lbl_pil = PIL.Image.fromarray(lbl.astype(np.uint8), mode='P')
+            lbl_pil.putpalette(color_map)
+            lbl_pil.save(out_png_file)
 
 
 class LabelMe2Seg(X2Seg):
@@ -224,12 +221,12 @@ class LabelMe2Seg(X2Seg):
     def get_labels2ids(self, image_dir, json_dir):
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                          encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 for shape in json_info['shapes']:
                     cls_name = shape['label']
@@ -240,20 +237,20 @@ class LabelMe2Seg(X2Seg):
         color_map = self.get_color_map_list(256)
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
             img_file = osp.join(image_dir, img_name)
             img = np.asarray(PIL.Image.open(img_file))
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                          encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
             lbl, _ = self.shapes_to_label(
                 img_shape=img.shape,
                 shapes=json_info['shapes'],
                 label_name_to_value=self.labels2ids, )
-            out_png_file = osp.join(png_dir, img_name_part + '.png')
+            out_png_file = osp.join(png_dir, f'{img_name_part}.png')
             if lbl.min() >= 0 and lbl.max() <= 255:
                 lbl_pil = PIL.Image.fromarray(lbl.astype(np.uint8), mode='P')
                 lbl_pil.putpalette(color_map)
@@ -274,12 +271,12 @@ class EasyData2Seg(X2Seg):
     def get_labels2ids(self, image_dir, json_dir):
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                          encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 for shape in json_info["labels"]:
                     cls_name = shape['name']
@@ -293,9 +290,10 @@ class EasyData2Seg(X2Seg):
         for contour in contours:
             contour_list = contour.flatten().tolist()
             if len(contour_list) > 4:
-                points = []
-                for i in range(0, len(contour_list), 2):
-                    points.append([contour_list[i], contour_list[i + 1]])
+                points = [
+                    [contour_list[i], contour_list[i + 1]]
+                    for i in range(0, len(contour_list), 2)
+                ]
                 shape = {
                     'label': label,
                     'points': points,
@@ -309,7 +307,7 @@ class EasyData2Seg(X2Seg):
         color_map = self.get_color_map_list(256)
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 os.remove(osp.join(image_dir, img_name))
                 continue
@@ -318,13 +316,11 @@ class EasyData2Seg(X2Seg):
             img_h = img.shape[0]
             img_w = img.shape[1]
             with open(json_file, mode="r", \
-                      encoding=get_encoding(json_file)) as j:
+                                  encoding=get_encoding(json_file)) as j:
                 json_info = json.load(j)
                 data_shapes = []
                 for shape in json_info['labels']:
-                    mask_dict = {}
-                    mask_dict['size'] = [img_h, img_w]
-                    mask_dict['counts'] = shape['mask'].encode()
+                    mask_dict = {'size': [img_h, img_w], 'counts': shape['mask'].encode()}
                     mask = decode(mask_dict)
                     polygon = self.mask2polygon(mask, shape["name"])
                     data_shapes.extend(polygon)
@@ -332,12 +328,11 @@ class EasyData2Seg(X2Seg):
                 img_shape=img.shape,
                 shapes=data_shapes,
                 label_name_to_value=self.labels2ids, )
-            out_png_file = osp.join(png_dir, img_name_part + '.png')
-            if lbl.min() >= 0 and lbl.max() <= 255:
-                lbl_pil = PIL.Image.fromarray(lbl.astype(np.uint8), mode='P')
-                lbl_pil.putpalette(color_map)
-                lbl_pil.save(out_png_file)
-            else:
+            out_png_file = osp.join(png_dir, f'{img_name_part}.png')
+            if lbl.min() < 0 or lbl.max() > 255:
                 raise ValueError(
-                    '[%s] Cannot save the pixel-wise class label as PNG. '
-                    'Please consider using the .npy format.' % out_png_file)
+                    f'[{out_png_file}] Cannot save the pixel-wise class label as PNG. Please consider using the .npy format.'
+                )
+            lbl_pil = PIL.Image.fromarray(lbl.astype(np.uint8), mode='P')
+            lbl_pil.putpalette(color_map)
+            lbl_pil.save(out_png_file)

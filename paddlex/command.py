@@ -137,7 +137,7 @@ def main():
     args = parser.parse_args()
 
     if args.version:
-        print("PaddleX-{}".format(pdx.__version__))
+        print(f"PaddleX-{pdx.__version__}")
         print("Repo: https://github.com/PaddlePaddle/PaddleX.git")
         print("Email: paddlex@baidu.com")
         return
@@ -164,7 +164,7 @@ def main():
 
         model = pdx.load_model(args.model_dir)
 
-        if model.status == "Normal" or model.status == "Prune":
+        if model.status in ["Normal", "Prune"]:
             logging.error(
                 "Only support inference model, try to export model first as below,",
                 exit=False)
@@ -182,14 +182,14 @@ def main():
         assert args.save_dir is not None, "--save_dir should be defined to store taregt dataset"
         if args.source not in ['labelme', 'jingling', 'easydata']:
             logging.error(
-                "The source format {} is not one of labelme/jingling/easydata".
-                format(args.source),
-                exit=False)
+                f"The source format {args.source} is not one of labelme/jingling/easydata",
+                exit=False,
+            )
         if args.to not in ['PascalVOC', 'MSCOCO', 'SEG', 'ImageNet']:
             logging.error(
-                "The to format {} is not one of PascalVOC/MSCOCO/SEG/ImageNet".
-                format(args.to),
-                exit=False)
+                f"The to format {args.to} is not one of PascalVOC/MSCOCO/SEG/ImageNet",
+                exit=False,
+            )
         if args.source == 'labelme' and args.to == 'ImageNet':
             logging.error(
                 "The labelme dataset can not convert to the ImageNet dataset.",
@@ -215,7 +215,7 @@ def main():
                            if args.test_value is not None else 0)
         save_dir = dataset_dir
 
-        if not dataset_format in ["coco", "imagenet", "voc", "seg"]:
+        if dataset_format not in ["coco", "imagenet", "voc", "seg"]:
             logging.error(
                 "The dataset format is not correct defined.(support COCO/ImageNet/VOC/Seg)"
             )

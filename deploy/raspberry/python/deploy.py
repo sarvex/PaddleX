@@ -26,13 +26,13 @@ from paddlelite.lite import *
 class Predictor:
     def __init__(self, model_nb, model_yaml, thread_num):
         if not osp.exists(model_nb):
-            print("model nb file is not exists in {}".format(model_xml))
+            print(f"model nb file is not exists in {model_xml}")
         self.model_nb = model_nb
         config = MobileConfig()
         config.set_model_from_file(model_nb)
         config.set_threads(thread_num)
         if not osp.exists(model_yaml):
-            print("model yaml file is not exists in {}".format(model_yaml))
+            print(f"model yaml file is not exists in {model_yaml}")
         with open(model_yaml) as f:
             self.info = yaml.load(f.read(), Loader=yaml.Loader)
         self.model_type = self.info['_Attributes']['model_type']
@@ -40,15 +40,9 @@ class Predictor:
         self.num_classes = self.info['_Attributes']['num_classes']
         self.labels = self.info['_Attributes']['labels']
         if self.info['Model'] == 'MaskRCNN':
-            if self.info['_init_params']['with_fpn']:
-                self.mask_head_resolution = 28
-            else:
-                self.mask_head_resolution = 14
+            self.mask_head_resolution = 28 if self.info['_init_params']['with_fpn'] else 14
         transforms_mode = self.info.get('TransformsMode', 'RGB')
-        if transforms_mode == 'RGB':
-            to_rgb = True
-        else:
-            to_rgb = False
+        to_rgb = transforms_mode == 'RGB'
         self.transforms = self.build_transforms(self.info['Transforms'],
                                                 to_rgb)
         self.predictor = create_paddle_predictor(config)
@@ -62,14 +56,14 @@ class Predictor:
             import transforms.det_transforms as transforms
         elif self.model_type == "segmenter":
             import transforms.seg_transforms as transforms
-        op_list = list()
+        op_list = []
         for op_info in transforms_info:
             op_name = list(op_info.keys())[0]
             op_attr = op_info[op_name]
             if not hasattr(transforms, op_name):
                 raise Exception(
-                    "There's no operator named '{}' in transforms of {}".
-                    format(op_name, self.model_type))
+                    f"There's no operator named '{op_name}' in transforms of {self.model_type}"
+                )
             op_list.append(getattr(transforms, op_name)(**op_attr))
         eval_transforms = transforms.Compose(op_list)
         if hasattr(eval_transforms, 'to_rgb'):
@@ -86,11 +80,10 @@ class Predictor:
             arrange_transform = transforms.ArrangeSegmenter
         elif self.model_type == 'detector':
             import transforms.det_transforms as transforms
-            arrange_name = 'Arrange{}'.format(self.model_name)
+            arrange_name = f'Arrange{self.model_name}'
             arrange_transform = getattr(transforms, arrange_name)
         else:
-            raise Exception("Unrecognized model type: {}".format(
-                self.model_type))
+            raise Exception(f"Unrecognized model type: {self.model_type}")
         if type(eval_transforms.transforms[-1]).__name__.startswith('Arrange'):
             eval_transforms.transforms[-1] = arrange_transform(mode='test')
         else:
@@ -120,7 +113,7 @@ class Predictor:
         return
 
     def preprocess(self, image):
-        res = dict()
+        res = {}
         if self.model_type == "classifier":
             im, = self.transforms(image)
             self.shape = [1] + list(im.shape)
@@ -205,11 +198,7 @@ class Predictor:
         out_data = np.array(out_data)
         outputs = out_data.reshape(out_shape)
 
-        result = []
-        for out in outputs:
-            result.append(out.tolist())
-        #print(result)
-        return result
+        return [out.tolist() for out in outputs]
 
     def predict(self, image, topk=1, threshold=0.5):
         preprocessed_input = self.preprocess(image)

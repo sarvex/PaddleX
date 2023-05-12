@@ -114,12 +114,11 @@ def postprocess(cur_gray, scoremap, prev_gray, pre_cfd, disflow, is_init):
             disflow.setFinestScale(2)
         else:
             disflow.setFinestScale(3)
-        fusion_cfd = cur_cfd
+        return cur_cfd
     else:
         weights = np.ones((h, w), np.float32) * 0.3
         track_cfd, is_track, weights = cal_optical_flow_tracking(
             prev_gray, cur_gray, pre_cfd, weights, disflow)
-        fusion_cfd = fuse_optical_flow_tracking(track_cfd, cur_cfd, weights,
-                                                is_track)
-
-    return fusion_cfd
+        return fuse_optical_flow_tracking(
+            track_cfd, cur_cfd, weights, is_track
+        )

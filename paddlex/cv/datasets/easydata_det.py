@@ -58,19 +58,15 @@ class EasyDataDet(VOCDetection):
             buffer_size=buffer_size,
             parallel_method=parallel_method,
             shuffle=shuffle)
-        self.file_list = list()
-        self.labels = list()
+        self.file_list = []
+        self.labels = []
         self._epoch = 0
 
-        annotations = {}
-        annotations['images'] = []
-        annotations['categories'] = []
-        annotations['annotations'] = []
-
+        annotations = {'images': [], 'categories': [], 'annotations': []}
         cname2cid = {}
         label_id = 1
         with open(label_list, encoding=get_encoding(label_list)) as fr:
-            for line in fr.readlines():
+            for line in fr:
                 cname2cid[line.strip()] = label_id
                 label_id += 1
                 self.labels.append(line.strip())
@@ -88,7 +84,7 @@ class EasyDataDet(VOCDetection):
         with open(file_list, encoding=get_encoding(file_list)) as f:
             for line in f:
                 img_file, json_file = [osp.join(data_dir, x) \
-                        for x in line.strip().split()[:2]]
+                            for x in line.strip().split()[:2]]
                 img_file = path_normalization(img_file)
                 json_file = path_normalization(json_file)
                 if not is_pic(img_file):
@@ -96,10 +92,9 @@ class EasyDataDet(VOCDetection):
                 if not osp.isfile(json_file):
                     continue
                 if not osp.exists(img_file):
-                    raise IOError('The image file {} is not exist!'.format(
-                        img_file))
+                    raise IOError(f'The image file {img_file} is not exist!')
                 with open(json_file, mode='r', \
-                          encoding=get_encoding(json_file)) as j:
+                              encoding=get_encoding(json_file)) as j:
                     json_info = json.load(j)
                 im_id = np.array([ct])
                 im = cv2.imread(img_file)
@@ -122,9 +117,7 @@ class EasyDataDet(VOCDetection):
                     gt_bbox[i] = [x1, y1, x2, y2]
                     is_crowd[i][0] = 0
                     if 'mask' in obj:
-                        mask_dict = {}
-                        mask_dict['size'] = [im_h, im_w]
-                        mask_dict['counts'] = obj['mask'].encode()
+                        mask_dict = {'size': [im_h, im_w], 'counts': obj['mask'].encode()}
                         mask = decode(mask_dict)
                         gt_poly[i] = self.mask2polygon(mask)
                     annotations['annotations'].append({
@@ -163,10 +156,9 @@ class EasyDataDet(VOCDetection):
                         'file_name': osp.split(img_file)[1]
                     })
 
-        if not len(self.file_list) > 0:
-            raise Exception('not found any voc record in %s' % (file_list))
-        logging.info("{} samples in file {}".format(
-            len(self.file_list), file_list))
+        if not self.file_list:
+            raise Exception(f'not found any voc record in {file_list}')
+        logging.info(f"{len(self.file_list)} samples in file {file_list}")
         self.num_samples = len(self.file_list)
         # matplotlib.use() must be called *before* pylab, matplotlib.pyplot,
         # or matplotlib.backends is imported for the first time

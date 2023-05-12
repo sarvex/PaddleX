@@ -20,15 +20,14 @@ from paddlex.utils import is_pic, logging
 
 def split_seg_dataset(dataset_dir, val_percent, test_percent, save_dir):
     if not osp.exists(osp.join(dataset_dir, "JPEGImages")):
-        logging.error("\'JPEGImages\' is not found in {}!".format(dataset_dir))
+        logging.error(f"\'JPEGImages\' is not found in {dataset_dir}!")
     if not osp.exists(osp.join(dataset_dir, "Annotations")):
-        logging.error("\'Annotations\' is not found in {}!".format(
-            dataset_dir))
+        logging.error(f"\'Annotations\' is not found in {dataset_dir}!")
 
     all_image_files = list_files(osp.join(dataset_dir, "JPEGImages"))
 
-    image_anno_list = list()
-    label_list = list()
+    image_anno_list = []
+    label_list = []
     for image_file in all_image_files:
         if not is_pic(image_file):
             continue
@@ -40,11 +39,10 @@ def split_seg_dataset(dataset_dir, val_percent, test_percent, save_dir):
             if osp.exists(osp.join(dataset_dir, "Annotations", anno_name)):
                 image_anno_list.append([image_file, anno_name])
             else:
-                logging.error("The annotation file {} doesn't exist!".format(
-                    anno_name))
+                logging.error(f"The annotation file {anno_name} doesn't exist!")
 
     if not osp.exists(osp.join(dataset_dir, "labels.txt")):
-        for image_anno in image_anno_list:
+        for _ in image_anno_list:
             labels = read_seg_ann(
                 osp.join(dataset_dir, "Annotations", anno_name))
             for i in labels:
@@ -52,7 +50,7 @@ def split_seg_dataset(dataset_dir, val_percent, test_percent, save_dir):
                     label_list.append(i)
         # 如果类标签的最大值大于类别数，添加对应缺失的标签
         if len(label_list) != max(label_list) + 1:
-            label_list = [i for i in range(max(label_list) + 1)]
+            label_list = list(range(max(label_list) + 1))
 
     random.shuffle(image_anno_list)
     image_num = len(image_anno_list)
@@ -65,32 +63,32 @@ def split_seg_dataset(dataset_dir, val_percent, test_percent, save_dir):
     test_image_anno_list = image_anno_list[train_num + val_num:]
 
     with open(
-            osp.join(save_dir, 'train_list.txt'), mode='w',
-            encoding='utf-8') as f:
+                osp.join(save_dir, 'train_list.txt'), mode='w',
+                encoding='utf-8') as f:
         for x in train_image_anno_list:
             file = osp.join("JPEGImages", x[0])
             label = osp.join("Annotations", x[1])
-            f.write('{} {}\n'.format(file, label))
+            f.write(f'{file} {label}\n')
     with open(
-            osp.join(save_dir, 'val_list.txt'), mode='w',
-            encoding='utf-8') as f:
+                osp.join(save_dir, 'val_list.txt'), mode='w',
+                encoding='utf-8') as f:
         for x in val_image_anno_list:
             file = osp.join("JPEGImages", x[0])
             label = osp.join("Annotations", x[1])
-            f.write('{} {}\n'.format(file, label))
+            f.write(f'{file} {label}\n')
     if len(test_image_anno_list):
         with open(
-                osp.join(save_dir, 'test_list.txt'), mode='w',
-                encoding='utf-8') as f:
+                        osp.join(save_dir, 'test_list.txt'), mode='w',
+                        encoding='utf-8') as f:
             for x in test_image_anno_list:
                 file = osp.join("JPEGImages", x[0])
                 label = osp.join("Annotations", x[1])
-                f.write('{} {}\n'.format(file, label))
+                f.write(f'{file} {label}\n')
     if len(label_list):
         with open(
-                osp.join(save_dir, 'labels.txt'), mode='w',
-                encoding='utf-8') as f:
+                        osp.join(save_dir, 'labels.txt'), mode='w',
+                        encoding='utf-8') as f:
             for l in sorted(label_list):
-                f.write('{}\n'.format(l))
+                f.write(f'{l}\n')
 
     return train_num, val_num, test_num

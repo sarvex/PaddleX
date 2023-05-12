@@ -27,8 +27,7 @@ def split_coco_dataset(dataset_dir, val_percent, test_percent, save_dir):
     matplotlib.use('Agg')
     from pycocotools.coco import COCO
     if not osp.exists(osp.join(dataset_dir, "annotations.json")):
-        logging.error("\'annotations.json\' is not found in {}!".format(
-            dataset_dir))
+        logging.error(f"\'annotations.json\' is not found in {dataset_dir}!")
 
     annotation_file = osp.join(dataset_dir, "annotations.json")
     coco = COCO(annotation_file)

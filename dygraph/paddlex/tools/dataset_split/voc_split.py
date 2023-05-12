@@ -21,15 +21,14 @@ from paddlex.utils import is_pic, logging
 
 def split_voc_dataset(dataset_dir, val_percent, test_percent, save_dir):
     if not osp.exists(osp.join(dataset_dir, "JPEGImages")):
-        logging.error("\'JPEGImages\' is not found in {}!".format(dataset_dir))
+        logging.error(f"\'JPEGImages\' is not found in {dataset_dir}!")
     if not osp.exists(osp.join(dataset_dir, "Annotations")):
-        logging.error("\'Annotations\' is not found in {}!".format(
-            dataset_dir))
+        logging.error(f"\'Annotations\' is not found in {dataset_dir}!")
 
     all_image_files = list_files(osp.join(dataset_dir, "JPEGImages"))
 
-    image_anno_list = list()
-    label_list = list()
+    image_anno_list = []
+    label_list = []
     for image_file in all_image_files:
         if not is_pic(image_file):
             continue
@@ -40,16 +39,16 @@ def split_voc_dataset(dataset_dir, val_percent, test_percent, save_dir):
                 tree = ET.parse(
                     osp.join(dataset_dir, "Annotations", anno_name))
             except:
-                raise Exception("文件{}不是一个良构的xml文件，请检查标注文件".format(
-                    osp.join(dataset_dir, "Annotations", anno_name)))
+                raise Exception(
+                    f'文件{osp.join(dataset_dir, "Annotations", anno_name)}不是一个良构的xml文件，请检查标注文件'
+                )
             objs = tree.findall("object")
-            for i, obj in enumerate(objs):
+            for obj in objs:
                 cname = obj.find('name').text
-                if not cname in label_list:
+                if cname not in label_list:
                     label_list.append(cname)
         else:
-            logging.error("The annotation file {} doesn't exist!".format(
-                anno_name))
+            logging.error(f"The annotation file {anno_name} doesn't exist!")
 
     random.shuffle(image_anno_list)
     image_num = len(image_anno_list)
@@ -62,30 +61,30 @@ def split_voc_dataset(dataset_dir, val_percent, test_percent, save_dir):
     test_image_anno_list = image_anno_list[train_num + val_num:]
 
     with open(
-            osp.join(save_dir, 'train_list.txt'), mode='w',
-            encoding='utf-8') as f:
+                osp.join(save_dir, 'train_list.txt'), mode='w',
+                encoding='utf-8') as f:
         for x in train_image_anno_list:
             file = osp.join("JPEGImages", x[0])
             label = osp.join("Annotations", x[1])
-            f.write('{} {}\n'.format(file, label))
+            f.write(f'{file} {label}\n')
     with open(
-            osp.join(save_dir, 'val_list.txt'), mode='w',
-            encoding='utf-8') as f:
+                osp.join(save_dir, 'val_list.txt'), mode='w',
+                encoding='utf-8') as f:
         for x in val_image_anno_list:
             file = osp.join("JPEGImages", x[0])
             label = osp.join("Annotations", x[1])
-            f.write('{} {}\n'.format(file, label))
+            f.write(f'{file} {label}\n')
     if len(test_image_anno_list):
         with open(
-                osp.join(save_dir, 'test_list.txt'), mode='w',
-                encoding='utf-8') as f:
+                        osp.join(save_dir, 'test_list.txt'), mode='w',
+                        encoding='utf-8') as f:
             for x in test_image_anno_list:
                 file = osp.join("JPEGImages", x[0])
                 label = osp.join("Annotations", x[1])
-                f.write('{} {}\n'.format(file, label))
+                f.write(f'{file} {label}\n')
     with open(
-            osp.join(save_dir, 'labels.txt'), mode='w', encoding='utf-8') as f:
+                osp.join(save_dir, 'labels.txt'), mode='w', encoding='utf-8') as f:
         for l in sorted(label_list):
-            f.write('{}\n'.format(l))
+            f.write(f'{l}\n')
 
     return train_num, val_num, test_num

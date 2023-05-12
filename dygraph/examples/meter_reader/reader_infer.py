@@ -124,10 +124,7 @@ def is_pic(img_name):
     """
     valid_suffix = ['JPEG', 'jpeg', 'JPG', 'jpg', 'BMP', 'bmp', 'PNG', 'png']
     suffix = img_name.split('.')[-1]
-    flag = True
-    if suffix not in valid_suffix:
-        flag = False
-    return flag
+    return suffix in valid_suffix
 
 
 class MeterReader:
@@ -141,11 +138,9 @@ class MeterReader:
 
     def __init__(self, det_model_dir, seg_model_dir):
         if not osp.exists(det_model_dir):
-            raise Exception("Model path {} does not exist".format(
-                det_model_dir))
+            raise Exception(f"Model path {det_model_dir} does not exist")
         if not osp.exists(seg_model_dir):
-            raise Exception("Model path {} does not exist".format(
-                seg_model_dir))
+            raise Exception(f"Model path {seg_model_dir} does not exist")
         self.detector = pdx.load_model(det_model_dir)
         self.segmenter = pdx.load_model(seg_model_dir)
 
@@ -159,11 +154,11 @@ class MeterReader:
             img (np.array): BGR图像数组。
         """
 
-        if isinstance(img_file, str):
-            img = cv2.imread(img_file).astype('float32')
-        else:
-            img = img_file.copy()
-        return img
+        return (
+            cv2.imread(img_file).astype('float32')
+            if isinstance(img_file, str)
+            else img_file.copy()
+        )
 
     def filter_bboxes(self, det_results, score_threshold):
         """过滤置信度低于阈值的检测框
@@ -176,11 +171,7 @@ class MeterReader:
             filtered_results (list[dict]): 过滤后的检测狂。
 
         """
-        filtered_results = list()
-        for res in det_results:
-            if res['score'] > score_threshold:
-                filtered_results.append(res)
-        return filtered_results
+        return [res for res in det_results if res['score'] > score_threshold]
 
     def roi_crop(self, img, det_results):
         """抠取图像上各检测框的图像区域
@@ -218,7 +209,7 @@ class MeterReader:
 
         """
 
-        resized_imgs = list()
+        resized_imgs = []
         for img in imgs:
             img_shape = img.shape
             scale_x = float(target_size[1]) / float(img_shape[1])
@@ -240,7 +231,7 @@ class MeterReader:
             seg_results (list[dict]): 输入图像的预测结果。
 
         """
-        seg_results = list()
+        seg_results = []
         num_imgs = len(imgs)
         for i in range(0, num_imgs, batch_size):
             batch = imgs[i:min(num_imgs, i + batch_size)]
@@ -286,8 +277,8 @@ class MeterReader:
             rectangle_meters (list[np.array])：矩形表盘的预测结果label_map。
 
         """
-        rectangle_meters = list()
-        for i, seg_result in enumerate(seg_results):
+        rectangle_meters = []
+        for seg_result in seg_results:
             label_map = seg_result['label_map']
             # rectangle_meter的大小已经由预先设置的全局变量RECTANGLE_HEIGHT, RECTANGLE_WIDTH决定
             rectangle_meter = np.zeros(
@@ -314,11 +305,11 @@ class MeterReader:
             line_pointers (list[np.array])：指针的线状预测结果。
 
         """
-        line_scales = list()
-        line_pointers = list()
+        line_scales = []
+        line_pointers = []
 
         for rectangle_meter in rectangle_meters:
-            height, width = rectangle_meter.shape[0:2]
+            height, width = rectangle_meter.shape[:2]
             line_scale = np.zeros((width), dtype=np.uint8)
             line_pointer = np.zeros((width), dtype=np.uint8)
             for col in range(width):
@@ -347,10 +338,7 @@ class MeterReader:
             mean_data = np.mean(data_list[i])
             width = data_list[i].shape[0]
             for col in range(width):
-                if data_list[i][col] < mean_data:
-                    binaried_data_list[i][col] = 0
-                else:
-                    binaried_data_list[i][col] = 1
+                binaried_data_list[i][col] = 0 if data_list[i][col] < mean_data else 1
         return binaried_data_list
 
     def locate_scale(self, line_scales):
@@ -364,28 +352,30 @@ class MeterReader:
 
         """
         batch_size = len(line_scales)
-        scale_locations = list()
+        scale_locations = []
         for i in range(batch_size):
             line_scale = line_scales[i]
             width = line_scale.shape[0]
             find_start = False
             one_scale_start = 0
             one_scale_end = 0
-            locations = list()
+            locations = []
             for j in range(width - 1):
-                if line_scale[j] > 0 and line_scale[j + 1] > 0:
-                    if find_start == False:
-                        one_scale_start = j
-                        find_start = True
-                if find_start:
-                    if line_scale[j] == 0 and line_scale[j + 1] == 0:
-                        one_scale_end = j - 1
-                        one_scale_location = (
-                            one_scale_start + one_scale_end) / 2
-                        locations.append(one_scale_location)
-                        one_scale_start = 0
-                        one_scale_end = 0
-                        find_start = False
+                if (
+                    line_scale[j] > 0
+                    and line_scale[j + 1] > 0
+                    and find_start == False
+                ):
+                    one_scale_start = j
+                    find_start = True
+                if find_start and line_scale[j] == 0 and line_scale[j + 1] == 0:
+                    one_scale_end = j - 1
+                    one_scale_location = (
+                        one_scale_start + one_scale_end) / 2
+                    locations.append(one_scale_location)
+                    one_scale_start = 0
+                    one_scale_end = 0
+                    find_start = False
             scale_locations.append(locations)
         return scale_locations
 
@@ -400,7 +390,7 @@ class MeterReader:
 
         """
         batch_size = len(line_pointers)
-        pointer_locations = list()
+        pointer_locations = []
         for i in range(batch_size):
             line_pointer = line_pointers[i]
             find_start = False
@@ -409,16 +399,22 @@ class MeterReader:
             location = 0
             width = line_pointer.shape[0]
             for j in range(width - 1):
-                if line_pointer[j] > 0 and line_pointer[j + 1] > 0:
-                    if find_start == False:
-                        pointer_start = j
-                        find_start = True
-                if find_start:
-                    if line_pointer[j] == 0 and line_pointer[j + 1] == 0:
-                        pointer_end = j - 1
-                        location = (pointer_start + pointer_end) / 2
-                        find_start = False
-                        break
+                if (
+                    line_pointer[j] > 0
+                    and line_pointer[j + 1] > 0
+                    and find_start == False
+                ):
+                    pointer_start = j
+                    find_start = True
+                if (
+                    find_start
+                    and line_pointer[j] == 0
+                    and line_pointer[j + 1] == 0
+                ):
+                    pointer_end = j - 1
+                    location = (pointer_start + pointer_end) / 2
+                    find_start = False
+                    break
             pointer_locations.append(location)
         return pointer_locations
 
@@ -436,16 +432,18 @@ class MeterReader:
 
         """
 
-        pointed_scales = list()
+        pointed_scales = []
         for scale_location, pointer_location in zip(scale_locations,
                                                     pointer_locations):
             num_scales = len(scale_location)
             pointed_scale = -1
             if num_scales > 0:
                 for i in range(num_scales - 1):
-                    if scale_location[
-                            i] <= pointer_location and pointer_location < scale_location[
-                                i + 1]:
+                    if (
+                        scale_location[i]
+                        <= pointer_location
+                        < scale_location[i + 1]
+                    ):
                         pointed_scale = i + (
                             pointer_location - scale_location[i]
                         ) / (scale_location[i + 1] - scale_location[i] + 1e-05
@@ -457,7 +455,7 @@ class MeterReader:
     def calculate_reading(self, pointed_scales):
         """根据刻度的间隔值和指针指向的刻度根数计算表盘的读数
         """
-        readings = list()
+        readings = []
         batch_size = len(pointed_scales)
         for i in range(batch_size):
             pointed_scale = pointed_scales[i]
@@ -491,8 +489,7 @@ class MeterReader:
         pointer_locations = self.locate_pointer(binaried_pointers)
         pointed_scales = self.get_relative_location(scale_locations,
                                                     pointer_locations)
-        meter_readings = self.calculate_reading(pointed_scales)
-        return meter_readings
+        return self.calculate_reading(pointed_scales)
 
     def print_meter_readings(self, meter_readings):
         """打印各表盘的读数
@@ -501,7 +498,7 @@ class MeterReader:
             meter_readings (list[dict])：各表盘的读数
         """
         for i in range(len(meter_readings)):
-            print("Meter {}: {}".format(i + 1, meter_readings[i]))
+            print(f"Meter {i + 1}: {meter_readings[i]}")
 
     def visualize(self, img, det_results, meter_readings, save_dir="./"):
         """可视化图像中各表盘的位置和读数
@@ -513,7 +510,7 @@ class MeterReader:
             save_dir (str)：可视化后的图片保存路径。
 
         """
-        vis_results = list()
+        vis_results = []
         for i, res in enumerate(det_results):
             # 将检测结果中的关键词`score`替换成读数，就可以调用pdx.det.visualize画图了
             res['score'] = meter_readings[i]
@@ -568,25 +565,24 @@ class MeterReader:
 
 
 def infer(args):
-    image_lists = list()
+    image_lists = []
     if args.image is not None:
         if not osp.exists(args.image):
-            raise Exception("Image {} does not exist.".format(args.image))
+            raise Exception(f"Image {args.image} does not exist.")
         if not is_pic(args.image):
-            raise Exception("{} is not a picture.".format(args.image))
+            raise Exception(f"{args.image} is not a picture.")
         image_lists.append(args.image)
     elif args.image_dir is not None:
         if not osp.exists(args.image_dir):
-            raise Exception("Directory {} does not exist.".format(
-                args.image_dir))
+            raise Exception(f"Directory {args.image_dir} does not exist.")
         for im_file in os.listdir(args.image_dir):
             if not is_pic(im_file):
                 continue
             im_file = osp.join(args.image_dir, im_file)
             image_lists.append(im_file)
 
-    meter_reader = MeterReader(args.det_model_dir, args.seg_model_dir)
-    if len(image_lists) > 0:
+    if image_lists:
+        meter_reader = MeterReader(args.det_model_dir, args.seg_model_dir)
         for image in image_lists:
             meter_reader.predict(image, args.save_dir, args.use_erode,
                                  args.erode_kernel, args.score_threshold,

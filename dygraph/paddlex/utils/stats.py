@@ -24,7 +24,7 @@ class SmoothedValue(object):
 
     def __init__(self, window_size=20):
         if window_size is None:
-            self.deque = list()
+            self.deque = []
         else:
             self.deque = collections.deque(maxlen=window_size)
 
@@ -62,7 +62,5 @@ class TrainingStats(object):
 
     def log(self, extras=None):
         d = self.get(extras)
-        strs = []
-        for k, v in d.items():
-            strs.append("{}={}".format(k, str(v).format('8.6f')))
+        strs = [f"{k}={str(v).format('8.6f')}" for k, v in d.items()]
         return self.delimiter.join(strs)

@@ -68,22 +68,21 @@ class Compose(SegTransform):
         """
 
         if im_info is None:
-            im_info = list()
+            im_info = []
         if isinstance(im, np.ndarray):
             if len(im.shape) != 3:
                 raise Exception(
-                    "im should be 3-dimensions, but now is {}-dimensions".
-                    format(len(im.shape)))
+                    f"im should be 3-dimensions, but now is {len(im.shape)}-dimensions"
+                )
         else:
             try:
                 im = cv2.imread(im).astype('float32')
             except:
-                raise ValueError('Can\'t read The image file {}!'.format(im))
+                raise ValueError(f"Can\'t read The image file {im}!")
         if self.to_rgb:
             im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-        if label is not None:
-            if not isinstance(label, np.ndarray):
-                label = np.asarray(Image.open(label))
+        if label is not None and not isinstance(label, np.ndarray):
+            label = np.asarray(Image.open(label))
         for op in self.transforms:
             if isinstance(op, SegTransform):
                 outputs = op(im, im_info, label)
@@ -94,10 +93,7 @@ class Compose(SegTransform):
                     label = outputs[2]
             else:
                 im = execute_imgaug(op, im)
-                if label is not None:
-                    outputs = (im, im_info, label)
-                else:
-                    outputs = (im, im_info)
+                outputs = (im, im_info, label) if label is not None else (im, im_info)
         return outputs
 
     def add_augmenters(self, augmenters):
@@ -107,7 +103,9 @@ class Compose(SegTransform):
         transform_names = [type(x).__name__ for x in self.transforms]
         for aug in augmenters:
             if type(aug).__name__ in transform_names:
-                print("{} is already in ComposedTransforms, need to remove it from add_augmenters().".format(type(aug).__name__))
+                print(
+                    f"{type(aug).__name__} is already in ComposedTransforms, need to remove it from add_augmenters()."
+                )
         self.transforms = augmenters + self.transforms
 
 
@@ -141,10 +139,7 @@ class RandomHorizontalFlip(SegTransform):
             im = horizontal_flip(im)
             if label is not None:
                 label = horizontal_flip(label)
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class RandomVerticalFlip(SegTransform):
@@ -176,10 +171,7 @@ class RandomVerticalFlip(SegTransform):
             im = vertical_flip(im)
             if label is not None:
                 label = vertical_flip(label)
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class Resize(SegTransform):
@@ -212,17 +204,18 @@ class Resize(SegTransform):
 
     def __init__(self, target_size, interp='LINEAR'):
         self.interp = interp
-        assert interp in self.interp_dict, "interp should be one of {}".format(
-            interp_dict.keys())
-        if isinstance(target_size, list) or isinstance(target_size, tuple):
+        assert (
+            interp in self.interp_dict
+        ), f"interp should be one of {interp_dict.keys()}"
+        if isinstance(target_size, (list, tuple)):
             if len(target_size) != 2:
                 raise ValueError(
-                    'when target is list or tuple, it should include 2 elements, but it is {}'
-                    .format(target_size))
+                    f'when target is list or tuple, it should include 2 elements, but it is {target_size}'
+                )
         elif not isinstance(target_size, int):
             raise TypeError(
-                "Type of target_size is invalid. Must be Integer or List or tuple, now is {}"
-                .format(type(target_size)))
+                f"Type of target_size is invalid. Must be Integer or List or tuple, now is {type(target_size)}"
+            )
 
         self.target_size = target_size
 
@@ -257,8 +250,8 @@ class Resize(SegTransform):
         if len(im.shape) != 3:
             raise ValueError('ResizeImage: image is not 3-dimensional.')
         im_shape = im.shape
-        im_size_min = np.min(im_shape[0:2])
-        im_size_max = np.max(im_shape[0:2])
+        im_size_min = np.min(im_shape[:2])
+        im_size_max = np.max(im_shape[:2])
         if float(im_size_min) == 0:
             raise ZeroDivisionError('ResizeImage: min size of image is 0')
 
@@ -286,10 +279,7 @@ class Resize(SegTransform):
                 fx=im_scale_x,
                 fy=im_scale_y,
                 interpolation=self.interp_dict['NEAREST'])
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class ResizeByLong(SegTransform):
@@ -327,10 +317,7 @@ class ResizeByLong(SegTransform):
         if label is not None:
             label = resize_long(label, self.long_size, cv2.INTER_NEAREST)
 
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class ResizeByShort(SegTransform):
@@ -355,8 +342,8 @@ class ResizeByShort(SegTransform):
         self.max_size = int(max_size)
         if not isinstance(short_size, int):
             raise TypeError(
-                "Type of short_size is invalid. Must be Integer, now is {}".
-                format(type(short_size)))
+                f"Type of short_size is invalid. Must be Integer, now is {type(short_size)}"
+            )
         self.short_size = short_size
         if not (isinstance(self.max_size, int)):
             raise TypeError("max_size: input type is invalid.")
@@ -404,10 +391,7 @@ class ResizeByShort(SegTransform):
             im = cv2.resize(
                 label, (resized_width, resized_height),
                 interpolation=cv2.INTER_NEAREST)
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class ResizeRangeScaling(SegTransform):
@@ -423,9 +407,9 @@ class ResizeRangeScaling(SegTransform):
 
     def __init__(self, min_value=400, max_value=600):
         if min_value > max_value:
-            raise ValueError('min_value must be less than max_value, '
-                             'but they are {} and {}.'.format(min_value,
-                                                              max_value))
+            raise ValueError(
+                f'min_value must be less than max_value, but they are {min_value} and {max_value}.'
+            )
         self.min_value = min_value
         self.max_value = max_value
 
@@ -453,10 +437,7 @@ class ResizeRangeScaling(SegTransform):
         if label is not None:
             label = resize_long(label, random_size, cv2.INTER_NEAREST)
 
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class ResizeStepScaling(SegTransform):
@@ -478,9 +459,8 @@ class ResizeStepScaling(SegTransform):
                  scale_step_size=0.25):
         if min_scale_factor > max_scale_factor:
             raise ValueError(
-                'min_scale_factor must be less than max_scale_factor, '
-                'but they are {} and {}.'.format(min_scale_factor,
-                                                 max_scale_factor))
+                f'min_scale_factor must be less than max_scale_factor, but they are {min_scale_factor} and {max_scale_factor}.'
+            )
         self.min_scale_factor = min_scale_factor
         self.max_scale_factor = max_scale_factor
         self.scale_step_size = scale_step_size
@@ -528,10 +508,7 @@ class ResizeStepScaling(SegTransform):
                 fy=scale_factor,
                 interpolation=cv2.INTER_NEAREST)
 
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class Normalize(SegTransform):
@@ -551,10 +528,10 @@ class Normalize(SegTransform):
         self.mean = mean
         self.std = std
         if not (isinstance(self.mean, list) and isinstance(self.std, list)):
-            raise ValueError("{}: input type is invalid.".format(self))
+            raise ValueError(f"{self}: input type is invalid.")
         from functools import reduce
         if reduce(lambda x, y: x * y, self.std) == 0:
-            raise ValueError('{}: std is invalid!'.format(self))
+            raise ValueError(f'{self}: std is invalid!')
 
     def __call__(self, im, im_info=None, label=None):
         """
@@ -576,10 +553,7 @@ class Normalize(SegTransform):
         std = np.array(self.std)[np.newaxis, np.newaxis, :]
         im = normalize(im, mean, std)
 
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class Padding(SegTransform):
@@ -600,15 +574,15 @@ class Padding(SegTransform):
                  target_size,
                  im_padding_value=[127.5, 127.5, 127.5],
                  label_padding_value=255):
-        if isinstance(target_size, list) or isinstance(target_size, tuple):
+        if isinstance(target_size, (list, tuple)):
             if len(target_size) != 2:
                 raise ValueError(
-                    'when target is list or tuple, it should include 2 elements, but it is {}'
-                    .format(target_size))
+                    f'when target is list or tuple, it should include 2 elements, but it is {target_size}'
+                )
         elif not isinstance(target_size, int):
             raise TypeError(
-                "Type of target_size is invalid. Must be Integer or List or tuple, now is {}"
-                .format(type(target_size)))
+                f"Type of target_size is invalid. Must be Integer or List or tuple, now is {type(target_size)}"
+            )
         self.target_size = target_size
         self.im_padding_value = im_padding_value
         self.label_padding_value = label_padding_value
@@ -648,30 +622,26 @@ class Padding(SegTransform):
         pad_width = target_width - im_width
         if pad_height < 0 or pad_width < 0:
             raise ValueError(
-                'the size of image should be less than target_size, but the size of image ({}, {}), is larger than target_size ({}, {})'
-                .format(im_width, im_height, target_width, target_height))
-        else:
-            im = cv2.copyMakeBorder(
-                im,
+                f'the size of image should be less than target_size, but the size of image ({im_width}, {im_height}), is larger than target_size ({target_width}, {target_height})'
+            )
+        im = cv2.copyMakeBorder(
+            im,
+            0,
+            pad_height,
+            0,
+            pad_width,
+            cv2.BORDER_CONSTANT,
+            value=self.im_padding_value)
+        if label is not None:
+            label = cv2.copyMakeBorder(
+                label,
                 0,
                 pad_height,
                 0,
                 pad_width,
                 cv2.BORDER_CONSTANT,
-                value=self.im_padding_value)
-            if label is not None:
-                label = cv2.copyMakeBorder(
-                    label,
-                    0,
-                    pad_height,
-                    0,
-                    pad_width,
-                    cv2.BORDER_CONSTANT,
-                    value=self.label_padding_value)
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+                value=self.label_padding_value)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class RandomPaddingCrop(SegTransform):
@@ -691,15 +661,15 @@ class RandomPaddingCrop(SegTransform):
                  crop_size=512,
                  im_padding_value=[127.5, 127.5, 127.5],
                  label_padding_value=255):
-        if isinstance(crop_size, list) or isinstance(crop_size, tuple):
+        if isinstance(crop_size, (list, tuple)):
             if len(crop_size) != 2:
                 raise ValueError(
-                    'when crop_size is list or tuple, it should include 2 elements, but it is {}'
-                    .format(crop_size))
+                    f'when crop_size is list or tuple, it should include 2 elements, but it is {crop_size}'
+                )
         elif not isinstance(crop_size, int):
             raise TypeError(
-                "Type of crop_size is invalid. Must be Integer or List or tuple, now is {}"
-                .format(type(crop_size)))
+                f"Type of crop_size is invalid. Must be Integer or List or tuple, now is {type(crop_size)}"
+            )
         self.crop_size = crop_size
         self.im_padding_value = im_padding_value
         self.label_padding_value = label_padding_value
@@ -730,47 +700,40 @@ class RandomPaddingCrop(SegTransform):
         img_width = im.shape[1]
 
         if img_height == crop_height and img_width == crop_width:
-            if label is None:
-                return (im, im_info)
-            else:
-                return (im, im_info, label)
-        else:
-            pad_height = max(crop_height - img_height, 0)
-            pad_width = max(crop_width - img_width, 0)
-            if (pad_height > 0 or pad_width > 0):
-                im = cv2.copyMakeBorder(
-                    im,
+            return (im, im_info) if label is None else (im, im_info, label)
+        pad_height = max(crop_height - img_height, 0)
+        pad_width = max(crop_width - img_width, 0)
+        if (pad_height > 0 or pad_width > 0):
+            im = cv2.copyMakeBorder(
+                im,
+                0,
+                pad_height,
+                0,
+                pad_width,
+                cv2.BORDER_CONSTANT,
+                value=self.im_padding_value)
+            if label is not None:
+                label = cv2.copyMakeBorder(
+                    label,
                     0,
                     pad_height,
                     0,
                     pad_width,
                     cv2.BORDER_CONSTANT,
-                    value=self.im_padding_value)
-                if label is not None:
-                    label = cv2.copyMakeBorder(
-                        label,
-                        0,
-                        pad_height,
-                        0,
-                        pad_width,
-                        cv2.BORDER_CONSTANT,
-                        value=self.label_padding_value)
-                img_height = im.shape[0]
-                img_width = im.shape[1]
+                    value=self.label_padding_value)
+            img_height = im.shape[0]
+            img_width = im.shape[1]
 
-            if crop_height > 0 and crop_width > 0:
-                h_off = np.random.randint(img_height - crop_height + 1)
-                w_off = np.random.randint(img_width - crop_width + 1)
+        if crop_height > 0 and crop_width > 0:
+            h_off = np.random.randint(img_height - crop_height + 1)
+            w_off = np.random.randint(img_width - crop_width + 1)
 
-                im = im[h_off:(crop_height + h_off), w_off:(w_off + crop_width
-                                                            ), :]
-                if label is not None:
-                    label = label[h_off:(crop_height + h_off), w_off:(
-                        w_off + crop_width)]
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+            im = im[h_off:(crop_height + h_off), w_off:(w_off + crop_width
+                                                        ), :]
+            if label is not None:
+                label = label[h_off:(crop_height + h_off), w_off:(
+                    w_off + crop_width)]
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class RandomBlur(SegTransform):
@@ -804,19 +767,14 @@ class RandomBlur(SegTransform):
             n = 1
         else:
             n = int(1.0 / self.prob)
-        if n > 0:
-            if np.random.randint(0, n) == 0:
-                radius = np.random.randint(3, 10)
-                if radius % 2 != 1:
-                    radius = radius + 1
-                if radius > 9:
-                    radius = 9
-                im = cv2.GaussianBlur(im, (radius, radius), 0, 0)
+        if n > 0 and np.random.randint(0, n) == 0:
+            radius = np.random.randint(3, 10)
+            if radius % 2 != 1:
+                radius = radius + 1
+            radius = min(radius, 9)
+            im = cv2.GaussianBlur(im, (radius, radius), 0, 0)
 
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 
@@ -852,7 +810,7 @@ class RandomScaleAspect(SegTransform):
         if self.min_scale != 0 and self.aspect_ratio != 0:
             img_height = im.shape[0]
             img_width = im.shape[1]
-            for i in range(0, 10):
+            for _ in range(0, 10):
                 area = img_height * img_width
                 target_area = area * np.random.uniform(self.min_scale, 1.0)
                 aspectRatio = np.random.uniform(self.aspect_ratio,
@@ -861,10 +819,7 @@ class RandomScaleAspect(SegTransform):
                 dw = int(np.sqrt(target_area * 1.0 * aspectRatio))
                 dh = int(np.sqrt(target_area * 1.0 / aspectRatio))
                 if (np.random.randint(10) < 5):
-                    tmp = dw
-                    dw = dh
-                    dh = tmp
-
+                    dw, dh = dh, dw
                 if (dh < img_height and dw < img_width):
                     h1 = np.random.randint(0, img_height - dh)
                     w1 = np.random.randint(0, img_width - dw)
@@ -878,10 +833,7 @@ class RandomScaleAspect(SegTransform):
                         label, (img_width, img_height),
                         interpolation=cv2.INTER_NEAREST)
                     break
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class RandomDistort(SegTransform):
@@ -974,10 +926,7 @@ class RandomDistort(SegTransform):
             params['im'] = im
             if np.random.uniform(0, 1) < prob:
                 im = ops[id](**params)
-        if label is None:
-            return (im, im_info)
-        else:
-            return (im, im_info, label)
+        return (im, im_info) if label is None else (im, im_info, label)
 
 
 class ArrangeSegmenter(SegTransform):
@@ -1013,7 +962,7 @@ class ArrangeSegmenter(SegTransform):
                 'quant'时，返回的tuple为(im,)，为图像np.ndarray数据。
         """
         im = permute(im, False)
-        if self.mode == 'train' or self.mode == 'eval':
+        if self.mode in ['train', 'eval']:
             label = label[np.newaxis, :, :]
             return (im, label)
         elif self.mode == 'test':
@@ -1044,10 +993,7 @@ class ComposedSegTransforms(Compose):
                  train_crop_size=[769, 769],
                  mean=[0.5, 0.5, 0.5],
                  std=[0.5, 0.5, 0.5]):
-        if mode == 'train':
-            # 训练时的transforms，包含数据增强
-            pass
-        else:
+        if mode != 'train':
             # 验证/预测时的transforms
             transforms = [Normalize(mean=mean, std=std)]
 

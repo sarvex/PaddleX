@@ -19,7 +19,7 @@ class ExponentialMovingAverage(object):
     def __init__(self, decay, model, use_thres_step=False):
         self.step = 0
         self.decay = decay
-        self.shadow = dict()
+        self.shadow = {}
         for k, v in model.state_dict().items():
             self.shadow[k] = paddle.zeros_like(v)
         self.use_thres_step = use_thres_step
@@ -40,7 +40,7 @@ class ExponentialMovingAverage(object):
     def apply(self):
         if self.step == 0:
             return self.shadow
-        state_dict = dict()
+        state_dict = {}
         for k, v in self.shadow.items():
             v = v / (1 - self._decay**self.step)
             v.stop_gradient = True

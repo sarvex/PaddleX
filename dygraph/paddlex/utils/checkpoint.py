@@ -349,9 +349,9 @@ def get_pretrain_weights(flag, class_name, save_dir, backbone_name=None):
     # TODO: check flag
     new_save_dir = save_dir
     if backbone_name is not None:
-        weights_key = "{}_{}_{}".format(class_name, backbone_name, flag)
+        weights_key = f"{class_name}_{backbone_name}_{flag}"
     else:
-        weights_key = "{}_{}".format(class_name, flag)
+        weights_key = f"{class_name}_{flag}"
     if flag == 'CITYSCAPES':
         url = cityscapes_weights[weights_key]
     elif flag == 'IMAGENET':
@@ -361,49 +361,47 @@ def get_pretrain_weights(flag, class_name, save_dir, backbone_name=None):
     elif flag == 'COCO':
         url = coco_weights[weights_key]
     else:
-        raise ValueError('Given pretrained weights {} is undefined.'.format(
-            flag))
-    fname = download_and_decompress(url, path=new_save_dir)
-    return fname
+        raise ValueError(f'Given pretrained weights {flag} is undefined.')
+    return download_and_decompress(url, path=new_save_dir)
 
 
 def load_pretrain_weights(model, pretrain_weights=None, model_name=None):
     if pretrain_weights is not None:
         logging.info(
-            'Loading pretrained model from {}'.format(pretrain_weights),
-            use_color=True)
+            f'Loading pretrained model from {pretrain_weights}', use_color=True
+        )
 
-        if os.path.exists(pretrain_weights):
-            para_state_dict = paddle.load(pretrain_weights)
-            model_state_dict = model.state_dict()
-            keys = model_state_dict.keys()
-            num_params_loaded = 0
-            for k in keys:
-                if k not in para_state_dict:
-                    logging.warning("{} is not in pretrained model".format(k))
-                elif list(para_state_dict[k].shape) != list(model_state_dict[k]
+        if not os.path.exists(pretrain_weights):
+            raise ValueError(
+                f'The pretrained model directory is not Found: {pretrain_weights}'
+            )
+        para_state_dict = paddle.load(pretrain_weights)
+        model_state_dict = model.state_dict()
+        keys = model_state_dict.keys()
+        num_params_loaded = 0
+        for k in keys:
+            if k not in para_state_dict:
+                logging.warning(f"{k} is not in pretrained model")
+            elif list(para_state_dict[k].shape) != list(model_state_dict[k]
                                                             .shape):
-                    logging.warning(
-                        "[SKIP] Shape of pretrained params {} doesn't match.(Pretrained: {}, Actual: {})"
-                        .format(k, para_state_dict[k].shape, model_state_dict[
-                            k].shape))
-                else:
-                    model_state_dict[k] = para_state_dict[k]
-                    num_params_loaded += 1
-            model.set_state_dict(model_state_dict)
-            logging.info("There are {}/{} variables loaded into {}.".format(
-                num_params_loaded, len(model_state_dict), model_name))
-        else:
-            raise ValueError('The pretrained model directory is not Found: {}'.
-                             format(pretrain_weights))
+                logging.warning(
+                    f"[SKIP] Shape of pretrained params {k} doesn't match.(Pretrained: {para_state_dict[k].shape}, Actual: {model_state_dict[k].shape})"
+                )
+            else:
+                model_state_dict[k] = para_state_dict[k]
+                num_params_loaded += 1
+        model.set_state_dict(model_state_dict)
+        logging.info(
+            f"There are {num_params_loaded}/{len(model_state_dict)} variables loaded into {model_name}."
+        )
     else:
         logging.info(
-            'No pretrained model to load, {} will be trained from scratch.'.
-            format(model_name))
+            f'No pretrained model to load, {model_name} will be trained from scratch.'
+        )
 
 
 def load_optimizer(optimizer, state_dict_path):
-    logging.info("Loading optimizer from {}".format(state_dict_path))
+    logging.info(f"Loading optimizer from {state_dict_path}")
     optim_state_dict = paddle.load(state_dict_path)
     if 'last_epoch' in optim_state_dict:
         optim_state_dict.pop('last_epoch')
@@ -411,7 +409,7 @@ def load_optimizer(optimizer, state_dict_path):
 
 
 def load_checkpoint(model, optimizer, model_name, checkpoint):
-    logging.info("Loading checkpoint from {}".format(checkpoint))
+    logging.info(f"Loading checkpoint from {checkpoint}")
     load_pretrain_weights(
         model,
         pretrain_weights=osp.join(checkpoint, 'model.pdparams'),

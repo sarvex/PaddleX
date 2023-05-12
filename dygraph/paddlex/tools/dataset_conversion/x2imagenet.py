@@ -38,7 +38,7 @@ class X2ImageNet(object):
             dataset_save_dir)) == 0, "The save folder must be empty!"
         for img_name in os.listdir(image_dir):
             img_name_part = osp.splitext(img_name)[0]
-            json_file = osp.join(json_dir, img_name_part + ".json")
+            json_file = osp.join(json_dir, f"{img_name_part}.json")
             if not osp.exists(json_file):
                 continue
             with open(

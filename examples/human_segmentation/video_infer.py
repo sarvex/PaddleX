@@ -77,11 +77,9 @@ def video_infer(args):
     else:
         cap = cv2.VideoCapture(args.video_path)
     if not cap.isOpened():
-        raise IOError("Error opening video stream or file, "
-                      "--video_path whether existing: {}"
-                      " or camera whether working".format(args.video_path))
-        return
-
+        raise IOError(
+            f"Error opening video stream or file, --video_path whether existing: {args.video_path} or camera whether working"
+        )
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -102,82 +100,80 @@ def video_infer(args):
         # 开始获取视频帧
         while cap.isOpened():
             ret, frame = cap.read()
-            if ret:
-                im_shape = frame.shape
-                im_scale_x = float(resize_w) / float(im_shape[1])
-                im_scale_y = float(resize_h) / float(im_shape[0])
-                im = cv2.resize(
-                    frame,
-                    None,
-                    None,
-                    fx=im_scale_x,
-                    fy=im_scale_y,
-                    interpolation=cv2.INTER_LINEAR)
-                image = im.astype('float32')
-                im_info = ('resize', im_shape[0:2])
-                pred = model.predict(image, test_transforms)
-                score_map = pred['score_map']
-                cur_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-                score_map = 255 * score_map[:, :, 1]
-                optflow_map = postprocess(cur_gray, score_map, prev_gray, prev_cfd, \
-                        disflow, is_init)
-                prev_gray = cur_gray.copy()
-                prev_cfd = optflow_map.copy()
-                is_init = False
-                optflow_map = cv2.GaussianBlur(optflow_map, (3, 3), 0)
-                optflow_map = threshold_mask(
-                    optflow_map, thresh_bg=0.2, thresh_fg=0.8)
-                img_matting = np.repeat(
-                    optflow_map[:, :, np.newaxis], 3, axis=2)
-                img_matting = recover(img_matting, im_info)
-                bg_im = np.ones_like(img_matting) * 255
-                comb = (img_matting * frame +
-                        (1 - img_matting) * bg_im).astype(np.uint8)
-                out.write(comb)
-            else:
+            if not ret:
                 break
+            im_shape = frame.shape
+            im_scale_x = float(resize_w) / float(im_shape[1])
+            im_scale_y = float(resize_h) / float(im_shape[0])
+            im = cv2.resize(
+                frame,
+                None,
+                None,
+                fx=im_scale_x,
+                fy=im_scale_y,
+                interpolation=cv2.INTER_LINEAR)
+            image = im.astype('float32')
+            im_info = 'resize', im_shape[:2]
+            pred = model.predict(image, test_transforms)
+            score_map = pred['score_map']
+            cur_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+            score_map = 255 * score_map[:, :, 1]
+            optflow_map = postprocess(cur_gray, score_map, prev_gray, prev_cfd, \
+                    disflow, is_init)
+            prev_gray = cur_gray.copy()
+            prev_cfd = optflow_map.copy()
+            is_init = False
+            optflow_map = cv2.GaussianBlur(optflow_map, (3, 3), 0)
+            optflow_map = threshold_mask(
+                optflow_map, thresh_bg=0.2, thresh_fg=0.8)
+            img_matting = np.repeat(
+                optflow_map[:, :, np.newaxis], 3, axis=2)
+            img_matting = recover(img_matting, im_info)
+            bg_im = np.ones_like(img_matting) * 255
+            comb = (img_matting * frame +
+                    (1 - img_matting) * bg_im).astype(np.uint8)
+            out.write(comb)
         cap.release()
         out.release()
 
     else:
         while cap.isOpened():
             ret, frame = cap.read()
-            if ret:
-                im_shape = frame.shape
-                im_scale_x = float(resize_w) / float(im_shape[1])
-                im_scale_y = float(resize_h) / float(im_shape[0])
-                im = cv2.resize(
-                    frame,
-                    None,
-                    None,
-                    fx=im_scale_x,
-                    fy=im_scale_y,
-                    interpolation=cv2.INTER_LINEAR)
-                image = im.astype('float32')
-                im_info = ('resize', im_shape[0:2])
-                pred = model.predict(image, test_transforms)
-                score_map = pred['score_map']
-                cur_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-                cur_gray = cv2.resize(cur_gray, (resize_w, resize_h))
-                score_map = 255 * score_map[:, :, 1]
-                optflow_map = postprocess(cur_gray, score_map, prev_gray, prev_cfd, \
-                                          disflow, is_init)
-                prev_gray = cur_gray.copy()
-                prev_cfd = optflow_map.copy()
-                is_init = False
-                optflow_map = cv2.GaussianBlur(optflow_map, (3, 3), 0)
-                optflow_map = threshold_mask(
-                    optflow_map, thresh_bg=0.2, thresh_fg=0.8)
-                img_matting = np.repeat(
-                    optflow_map[:, :, np.newaxis], 3, axis=2)
-                img_matting = recover(img_matting, im_info)
-                bg_im = np.ones_like(img_matting) * 255
-                comb = (img_matting * frame +
-                        (1 - img_matting) * bg_im).astype(np.uint8)
-                cv2.imshow('HumanSegmentation', comb)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            else:
+            if not ret:
+                break
+            im_shape = frame.shape
+            im_scale_x = float(resize_w) / float(im_shape[1])
+            im_scale_y = float(resize_h) / float(im_shape[0])
+            im = cv2.resize(
+                frame,
+                None,
+                None,
+                fx=im_scale_x,
+                fy=im_scale_y,
+                interpolation=cv2.INTER_LINEAR)
+            image = im.astype('float32')
+            im_info = 'resize', im_shape[:2]
+            pred = model.predict(image, test_transforms)
+            score_map = pred['score_map']
+            cur_gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+            cur_gray = cv2.resize(cur_gray, (resize_w, resize_h))
+            score_map = 255 * score_map[:, :, 1]
+            optflow_map = postprocess(cur_gray, score_map, prev_gray, prev_cfd, \
+                                      disflow, is_init)
+            prev_gray = cur_gray.copy()
+            prev_cfd = optflow_map.copy()
+            is_init = False
+            optflow_map = cv2.GaussianBlur(optflow_map, (3, 3), 0)
+            optflow_map = threshold_mask(
+                optflow_map, thresh_bg=0.2, thresh_fg=0.8)
+            img_matting = np.repeat(
+                optflow_map[:, :, np.newaxis], 3, axis=2)
+            img_matting = recover(img_matting, im_info)
+            bg_im = np.ones_like(img_matting) * 255
+            comb = (img_matting * frame +
+                    (1 - img_matting) * bg_im).astype(np.uint8)
+            cv2.imshow('HumanSegmentation', comb)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         cap.release()
 

@@ -32,7 +32,7 @@ def md5check(fullname, md5sum=None):
     if md5sum is None:
         return True
 
-    logging.info("File {} md5 checking...".format(fullname))
+    logging.info(f"File {fullname} md5 checking...")
     md5 = hashlib.md5()
     with open(fullname, 'rb') as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -40,8 +40,9 @@ def md5check(fullname, md5sum=None):
     calc_md5sum = md5.hexdigest()
 
     if calc_md5sum != md5sum:
-        logging.info("File {} md5 check failed, {}(calc) != "
-                     "{}(base)".format(fullname, calc_md5sum, md5sum))
+        logging.info(
+            f"File {fullname} md5 check failed, {calc_md5sum}(calc) != {md5sum}(base)"
+        )
         return False
     return True
 
@@ -84,21 +85,21 @@ def download(url, path, md5sum=None):
         if retry_cnt < DOWNLOAD_RETRY_LIMIT:
             retry_cnt += 1
         else:
-            logging.debug("{} download failed.".format(fname))
-            raise RuntimeError("Download from {} failed. "
-                               "Retry limit reached".format(url))
+            logging.debug(f"{fname} download failed.")
+            raise RuntimeError(f"Download from {url} failed. Retry limit reached")
 
-        logging.info("Downloading {} from {}".format(fname, url))
+        logging.info(f"Downloading {fname} from {url}")
 
         req = requests.get(url, stream=True)
         if req.status_code != 200:
-            raise RuntimeError("Downloading from {} failed with code "
-                               "{}!".format(url, req.status_code))
+            raise RuntimeError(
+                f"Downloading from {url} failed with code {req.status_code}!"
+            )
 
         # For protecting download interupted, download to
         # tmp_fullname firstly, move tmp_fullname to fullname
         # after download finished
-        tmp_fullname = fullname + "_tmp"
+        tmp_fullname = f"{fullname}_tmp"
         total_size = req.headers.get('content-length')
         with open(tmp_fullname, 'wb') as f:
             if total_size:
@@ -120,14 +121,14 @@ def download(url, path, md5sum=None):
                                     1024.0)
                         current_time = time.time()
                         logging.debug(
-                            "Downloading: TotalSize={}M, DownloadSize={}M, Speed={}KB/s"
-                            .format(total_size_m, download_size_m, speed))
+                            f"Downloading: TotalSize={total_size_m}M, DownloadSize={download_size_m}M, Speed={speed}KB/s"
+                        )
             else:
                 for chunk in req.iter_content(chunk_size=1024):
                     if chunk:
                         f.write(chunk)
         shutil.move(tmp_fullname, fullname)
-        logging.debug("{} download completed.".format(fname))
+        logging.debug(f"{fname} download completed.")
 
     return fullname
 
@@ -136,7 +137,7 @@ def decompress(fname):
     """
     Decompress for zip and tar file
     """
-    logging.info("Decompressing {}...".format(fname))
+    logging.info(f"Decompressing {fname}...")
 
     # For protecting decompressing interupted,
     # decompress to fpath_tmp directory firstly, if decompress
@@ -155,7 +156,7 @@ def decompress(fname):
         with zipfile.ZipFile(fname) as zf:
             zf.extractall(path=fpath_tmp)
     else:
-        raise TypeError("Unsupport compress file type {}".format(fname))
+        raise TypeError(f"Unsupport compress file type {fname}")
 
     for f in os.listdir(fpath_tmp):
         src_dir = osp.join(fpath_tmp, f)
@@ -163,7 +164,7 @@ def decompress(fname):
         move_and_merge_tree(src_dir, dst_dir)
 
     shutil.rmtree(fpath_tmp)
-    logging.debug("{} decompressed.".format(fname))
+    logging.debug(f"{fname} decompressed.")
 
 
 def url2dir(url, path):
@@ -184,7 +185,7 @@ def download_and_decompress(url, path='.'):
     if nranks <= 1:
         url2dir(url, path)
     else:
-        lock_path = fullname + '.lock'
+        lock_path = f'{fullname}.lock'
         if not os.path.exists(fullname):
             with open(lock_path, 'w'):
                 os.utime(lock_path, None)

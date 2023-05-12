@@ -26,12 +26,10 @@ def list_files(dirname):
     """
 
     def filter_file(f):
-        if f.startswith('.'):
-            return True
-        return False
+        return bool(f.startswith('.'))
 
-    all_files = list()
-    dirs = list()
+    all_files = []
+    dirs = []
     for f in os.listdir(dirname):
         if filter_file(f):
             continue
@@ -58,8 +56,7 @@ def replace_ext(filename, new_ext):
     """
     items = filename.split(".")
     items[-1] = new_ext
-    new_filename = ".".join(items)
-    return new_filename
+    return ".".join(items)
 
 
 def read_seg_ann(pngfile):

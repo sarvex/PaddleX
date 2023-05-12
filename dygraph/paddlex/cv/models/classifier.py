@@ -51,14 +51,12 @@ class BaseClassifier(BaseModel):
     """
 
     def __init__(self, model_name='ResNet50', num_classes=1000, **params):
-        self.init_params = locals()
-        self.init_params.update(params)
+        self.init_params = locals() | params
         if 'lr_mult_list' in self.init_params:
             del self.init_params['lr_mult_list']
         super(BaseClassifier, self).__init__('classifier')
         if not hasattr(architectures, model_name):
-            raise Exception("ERROR: There's no model named {}.".format(
-                model_name))
+            raise Exception(f"ERROR: There's no model named {model_name}.")
 
         self.model_name = model_name
         self.labels = None
@@ -74,10 +72,9 @@ class BaseClassifier(BaseModel):
         return net
 
     def _fix_transforms_shape(self, image_shape):
-        if hasattr(self, 'test_transforms'):
-            if self.test_transforms is not None:
-                self.test_transforms.transforms.append(
-                    Resize(target_size=image_shape))
+        if hasattr(self, 'test_transforms') and self.test_transforms is not None:
+            self.test_transforms.transforms.append(
+                Resize(target_size=image_shape))
 
     def _get_test_inputs(self, image_shape):
         if image_shape is not None:
@@ -87,17 +84,13 @@ class BaseClassifier(BaseModel):
         else:
             image_shape = [None, 3, -1, -1]
         self.fixed_input_shape = image_shape
-        input_spec = [
-            InputSpec(
-                shape=image_shape, name='image', dtype='float32')
-        ]
-        return input_spec
+        return [InputSpec(shape=image_shape, name='image', dtype='float32')]
 
     def run(self, net, inputs, mode):
         net_out = net(inputs[0])
         softmax_out = F.softmax(net_out)
         if mode == 'test':
-            outputs = OrderedDict([('prediction', softmax_out)])
+            return OrderedDict([('prediction', softmax_out)])
 
         elif mode == 'eval':
             pred = softmax_out
@@ -114,15 +107,21 @@ class BaseClassifier(BaseModel):
                 acck = paddle.distributed.all_reduce(
                     acck, op=paddle.distributed.ReduceOp.
                     SUM) / paddle.distributed.get_world_size()
-                pred = list()
-                gt = list()
+                pred = []
+                gt = []
                 paddle.distributed.all_gather(pred, softmax_out)
                 paddle.distributed.all_gather(gt, inputs[1])
                 pred = paddle.concat(pred, axis=0)
                 gt = paddle.concat(gt, axis=0)
 
-            outputs = OrderedDict([('acc1', acc1), ('acc{}'.format(k), acck),
-                                   ('prediction', pred), ('labels', gt)])
+            return OrderedDict(
+                [
+                    ('acc1', acc1),
+                    (f'acc{k}', acck),
+                    ('prediction', pred),
+                    ('labels', gt),
+                ]
+            )
 
         else:
             # mode == 'train'
@@ -133,10 +132,7 @@ class BaseClassifier(BaseModel):
             k = min(5, self.num_classes)
             acck = paddle.metric.accuracy(softmax_out, label=labels, k=k)
 
-            outputs = OrderedDict([('loss', loss), ('acc1', acc1),
-                                   ('acc{}'.format(k), acck)])
-
-        return outputs
+            return OrderedDict([('loss', loss), ('acc1', acc1), (f'acc{k}', acck)])
 
     def default_optimizer(self, parameters, learning_rate, warmup_steps,
                           warmup_start_lr, lr_decay_epochs, lr_decay_gamma,
@@ -158,10 +154,8 @@ class BaseClassifier(BaseModel):
                     "https://github.com/PaddlePaddle/PaddleX/blob/develop/docs/appendix/parameters.md#notice",
                     exit=False)
                 logging.error(
-                    "warmup_steps should less than {} or lr_decay_epochs[0] greater than {}, "
-                    "please modify 'lr_decay_epochs' or 'warmup_steps' in train function".
-                    format(lr_decay_epochs[0] * num_steps_each_epoch,
-                           warmup_steps // num_steps_each_epoch))
+                    f"warmup_steps should less than {lr_decay_epochs[0] * num_steps_each_epoch} or lr_decay_epochs[0] greater than {warmup_steps // num_steps_each_epoch}, please modify 'lr_decay_epochs' or 'warmup_steps' in train function"
+                )
 
             scheduler = paddle.optimizer.lr.LinearWarmup(
                 learning_rate=scheduler,
@@ -249,8 +243,8 @@ class BaseClassifier(BaseModel):
         if pretrain_weights is not None and not osp.exists(pretrain_weights):
             if pretrain_weights not in ['IMAGENET']:
                 logging.warning(
-                    "Path of pretrain_weights('{}') does not exist!".format(
-                        pretrain_weights))
+                    f"Path of pretrain_weights('{pretrain_weights}') does not exist!"
+                )
                 logging.warning(
                     "Pretrain_weights is forcibly set to 'IMAGENET'. "
                     "If don't want to use pretrain weights, "
@@ -369,22 +363,21 @@ class BaseClassifier(BaseModel):
         self.net.eval()
         nranks = paddle.distributed.get_world_size()
         local_rank = paddle.distributed.get_rank()
-        if nranks > 1:
-            # Initialize parallel environment if not done.
-            if not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized(
-            ):
-                paddle.distributed.init_parallel_env()
+        if (
+            nranks > 1
+            and not paddle.distributed.parallel.parallel_helper._is_parallel_ctx_initialized()
+        ):
+            paddle.distributed.init_parallel_env()
         self.eval_data_loader = self.build_data_loader(
             eval_dataset, batch_size=batch_size, mode='eval')
         eval_metrics = TrainingStats()
         if return_details:
-            true_labels = list()
-            pred_scores = list()
+            true_labels = []
+            pred_scores = []
 
         logging.info(
-            "Start to evaluate(total_samples={}, total_steps={})...".format(
-                eval_dataset.num_samples,
-                math.ceil(eval_dataset.num_samples * 1.0 / batch_size)))
+            f"Start to evaluate(total_samples={eval_dataset.num_samples}, total_steps={math.ceil(eval_dataset.num_samples * 1.0 / batch_size)})..."
+        )
         with paddle.no_grad():
             for step, data in enumerate(self.eval_data_loader()):
                 outputs = self.run(self.net, data, mode='eval')
@@ -428,10 +421,7 @@ class BaseClassifier(BaseModel):
         if transforms is None:
             transforms = self.test_transforms
         true_topk = min(self.num_classes, topk)
-        if isinstance(img_file, (str, np.ndarray)):
-            images = [img_file]
-        else:
-            images = img_file
+        images = [img_file] if isinstance(img_file, (str, np.ndarray)) else img_file
         im = self._preprocess(images, transforms, self.model_type)
         self.net.eval()
         with paddle.no_grad():
@@ -446,7 +436,7 @@ class BaseClassifier(BaseModel):
     def _preprocess(self, images, transforms, model_type):
         arrange_transforms(
             model_type=model_type, transforms=transforms, mode='test')
-        batch_im = list()
+        batch_im = []
         for im in images:
             sample = {'image': im}
             batch_im.append(transforms(sample))
@@ -456,7 +446,7 @@ class BaseClassifier(BaseModel):
         return batch_im,
 
     def _postprocess(self, results, true_topk, labels):
-        preds = list()
+        preds = []
         for i, pred in enumerate(results):
             pred_label = np.argsort(pred)[::-1][:true_topk]
             preds.append([{
@@ -558,25 +548,16 @@ class AlexNet(BaseClassifier):
             model_name='AlexNet', num_classes=num_classes)
 
     def _get_test_inputs(self, image_shape):
-        if image_shape is not None:
-            if len(image_shape) == 2:
-                image_shape = [None, 3] + image_shape
-        else:
+        if image_shape is None:
             image_shape = [None, 3, 224, 224]
             logging.warning(
-                '[Important!!!] When exporting inference model for {},'.format(
-                    self.__class__.__name__) +
-                ' if fixed_input_shape is not set, it will be forcibly set to [None, 3, 224, 224]'
-                +
-                'Please check image shape after transforms is [3, 224, 224], if not, fixed_input_shape '
-                + 'should be specified manually.')
+                f'[Important!!!] When exporting inference model for {self.__class__.__name__}, if fixed_input_shape is not set, it will be forcibly set to [None, 3, 224, 224]Please check image shape after transforms is [3, 224, 224], if not, fixed_input_shape should be specified manually.'
+            )
+        elif len(image_shape) == 2:
+            image_shape = [None, 3] + image_shape
         self._fix_transforms_shape(image_shape[-2:])
         self.fixed_input_shape = image_shape
-        input_spec = [
-            InputSpec(
-                shape=image_shape, name='image', dtype='float32')
-        ]
-        return input_spec
+        return [InputSpec(shape=image_shape, name='image', dtype='float32')]
 
 
 class DarkNet53(BaseClassifier):
@@ -589,8 +570,9 @@ class MobileNetV1(BaseClassifier):
     def __init__(self, num_classes=1000, scale=1.0):
         supported_scale = [.25, .5, .75, 1.0]
         if scale not in supported_scale:
-            logging.warning("scale={} is not supported by MobileNetV1, "
-                            "scale is forcibly set to 1.0".format(scale))
+            logging.warning(
+                f"scale={scale} is not supported by MobileNetV1, scale is forcibly set to 1.0"
+            )
             scale = 1.0
         if scale == 1:
             model_name = 'MobileNetV1'
@@ -605,8 +587,9 @@ class MobileNetV2(BaseClassifier):
     def __init__(self, num_classes=1000, scale=1.0):
         supported_scale = [.25, .5, .75, 1.0, 1.5, 2.0]
         if scale not in supported_scale:
-            logging.warning("scale={} is not supported by MobileNetV2, "
-                            "scale is forcibly set to 1.0".format(scale))
+            logging.warning(
+                f"scale={scale} is not supported by MobileNetV2, scale is forcibly set to 1.0"
+            )
             scale = 1.0
         if scale == 1:
             model_name = 'MobileNetV2'
@@ -620,8 +603,9 @@ class MobileNetV3_small(BaseClassifier):
     def __init__(self, num_classes=1000, scale=1.0):
         supported_scale = [.35, .5, .75, 1.0, 1.25]
         if scale not in supported_scale:
-            logging.warning("scale={} is not supported by MobileNetV3_small, "
-                            "scale is forcibly set to 1.0".format(scale))
+            logging.warning(
+                f"scale={scale} is not supported by MobileNetV3_small, scale is forcibly set to 1.0"
+            )
             scale = 1.0
         model_name = 'MobileNetV3_small_x' + str(float(scale)).replace('.',
                                                                        '_')
@@ -634,22 +618,23 @@ class MobileNetV3_small_ssld(BaseClassifier):
         supported_scale = [.35, 1.0]
         if scale not in supported_scale:
             logging.warning(
-                "scale={} is not supported by MobileNetV3_small_ssld, "
-                "scale is forcibly set to 1.0".format(scale))
+                f"scale={scale} is not supported by MobileNetV3_small_ssld, scale is forcibly set to 1.0"
+            )
             scale = 1.0
         model_name = 'MobileNetV3_small_x' + str(float(scale)).replace('.',
                                                                        '_')
         super(MobileNetV3_small_ssld, self).__init__(
             model_name=model_name, num_classes=num_classes)
-        self.model_name = model_name + '_ssld'
+        self.model_name = f'{model_name}_ssld'
 
 
 class MobileNetV3_large(BaseClassifier):
     def __init__(self, num_classes=1000, scale=1.0):
         supported_scale = [.35, .5, .75, 1.0, 1.25]
         if scale not in supported_scale:
-            logging.warning("scale={} is not supported by MobileNetV3_large, "
-                            "scale is forcibly set to 1.0".format(scale))
+            logging.warning(
+                f"scale={scale} is not supported by MobileNetV3_large, scale is forcibly set to 1.0"
+            )
             scale = 1.0
         model_name = 'MobileNetV3_large_x' + str(float(scale)).replace('.',
                                                                        '_')
@@ -758,33 +743,25 @@ class ShuffleNetV2(BaseClassifier):
     def __init__(self, num_classes=1000, scale=1.0):
         supported_scale = [.25, .33, .5, 1.0, 1.5, 2.0]
         if scale not in supported_scale:
-            logging.warning("scale={} is not supported by ShuffleNetV2, "
-                            "scale is forcibly set to 1.0".format(scale))
+            logging.warning(
+                f"scale={scale} is not supported by ShuffleNetV2, scale is forcibly set to 1.0"
+            )
             scale = 1.0
         model_name = 'ShuffleNetV2_x' + str(float(scale)).replace('.', '_')
         super(ShuffleNetV2, self).__init__(
             model_name=model_name, num_classes=num_classes)
 
     def _get_test_inputs(self, image_shape):
-        if image_shape is not None:
-            if len(image_shape) == 2:
-                image_shape = [None, 3] + image_shape
-        else:
+        if image_shape is None:
             image_shape = [None, 3, 224, 224]
             logging.warning(
-                '[Important!!!] When exporting inference model for {},'.format(
-                    self.__class__.__name__) +
-                ' if fixed_input_shape is not set, it will be forcibly set to [None, 3, 224, 224]'
-                +
-                'Please check image shape after transforms is [3, 224, 224], if not, fixed_input_shape '
-                + 'should be specified manually.')
+                f'[Important!!!] When exporting inference model for {self.__class__.__name__}, if fixed_input_shape is not set, it will be forcibly set to [None, 3, 224, 224]Please check image shape after transforms is [3, 224, 224], if not, fixed_input_shape should be specified manually.'
+            )
+        elif len(image_shape) == 2:
+            image_shape = [None, 3] + image_shape
         self._fix_transforms_shape(image_shape[-2:])
         self.fixed_input_shape = image_shape
-        input_spec = [
-            InputSpec(
-                shape=image_shape, name='image', dtype='float32')
-        ]
-        return input_spec
+        return [InputSpec(shape=image_shape, name='image', dtype='float32')]
 
 
 class ShuffleNetV2_swish(BaseClassifier):
@@ -793,22 +770,13 @@ class ShuffleNetV2_swish(BaseClassifier):
             model_name='ShuffleNetV2_x1_5', num_classes=num_classes)
 
     def _get_test_inputs(self, image_shape):
-        if image_shape is not None:
-            if len(image_shape) == 2:
-                image_shape = [None, 3] + image_shape
-        else:
+        if image_shape is None:
             image_shape = [None, 3, 224, 224]
             logging.warning(
-                '[Important!!!] When exporting inference model for {},'.format(
-                    self.__class__.__name__) +
-                ' if fixed_input_shape is not set, it will be forcibly set to [None, 3, 224, 224]'
-                +
-                'Please check image shape after transforms is [3, 224, 224], if not, fixed_input_shape '
-                + 'should be specified manually.')
+                f'[Important!!!] When exporting inference model for {self.__class__.__name__}, if fixed_input_shape is not set, it will be forcibly set to [None, 3, 224, 224]Please check image shape after transforms is [3, 224, 224], if not, fixed_input_shape should be specified manually.'
+            )
+        elif len(image_shape) == 2:
+            image_shape = [None, 3] + image_shape
         self._fix_transforms_shape(image_shape[-2:])
         self.fixed_input_shape = image_shape
-        input_spec = [
-            InputSpec(
-                shape=image_shape, name='image', dtype='float32')
-        ]
-        return input_spec
+        return [InputSpec(shape=image_shape, name='image', dtype='float32')]

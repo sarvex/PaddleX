@@ -153,8 +153,8 @@ if __name__ == '__main__':
             vis = cv2.hconcat([gt_vis, det_vis])
             cv2.imwrite(
                 os.path.join(args.save_dir, os.path.split(img_file)[-1]), vis)
-            print('The comparison has been made for {}'.format(img_file))
+            print(f'The comparison has been made for {img_file}')
 
     print(
-        "The visualized ground-truths and predictions are saved in {}. Ground-truth is on the left, prediciton is on the right".
-        format(save_dir))
+        f"The visualized ground-truths and predictions are saved in {save_dir}. Ground-truth is on the left, prediciton is on the right"
+    )

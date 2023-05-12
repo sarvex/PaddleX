@@ -51,15 +51,15 @@ class Predictor:
                 max_trt_batch_size: 在使用TensorRT时配置的最大batch size，默认1
         """
         if not osp.isdir(model_dir):
-            raise Exception("[ERROR] Path {} not exist.".format(model_dir))
+            raise Exception(f"[ERROR] Path {model_dir} not exist.")
         if not osp.exists(osp.join(model_dir, "model.yml")):
-            raise Exception("There's not model.yml in {}".format(model_dir))
+            raise Exception(f"There's not model.yml in {model_dir}")
         with open(osp.join(model_dir, "model.yml")) as f:
             self.info = yaml.load(f.read(), Loader=yaml.Loader)
 
         self.status = self.info['status']
 
-        if self.status != "Quant" and self.status != "Infer":
+        if self.status not in ["Quant", "Infer"]:
             raise Exception("[ERROR] Only quantized model or exported "
                             "inference model is supported.")
 
@@ -69,15 +69,9 @@ class Predictor:
         self.num_classes = self.info['_Attributes']['num_classes']
         self.labels = self.info['_Attributes']['labels']
         if self.info['Model'] == 'MaskRCNN':
-            if self.info['_init_params']['with_fpn']:
-                self.mask_head_resolution = 28
-            else:
-                self.mask_head_resolution = 14
+            self.mask_head_resolution = 28 if self.info['_init_params']['with_fpn'] else 14
         transforms_mode = self.info.get('TransformsMode', 'RGB')
-        if transforms_mode == 'RGB':
-            to_rgb = True
-        else:
-            to_rgb = False
+        to_rgb = transforms_mode == 'RGB'
         self.transforms = build_transforms(self.model_type,
                                            self.info['Transforms'], to_rgb)
         self.predictor = self.create_predictor(
@@ -85,7 +79,7 @@ class Predictor:
             memory_optimize, max_trt_batch_size)
         # 线程池，在模型在预测时用于对输入数据以图片为单位进行并行处理
         # 主要用于batch_predict接口
-        thread_num = mp.cpu_count() if mp.cpu_count() < 8 else 8
+        thread_num = min(mp.cpu_count(), 8)
         self.thread_pool = mp.pool.ThreadPool(thread_num)
         self.input_channel = 3
         if 'input_channel' in self.info['_init_params']:
@@ -141,8 +135,7 @@ class Predictor:
         config.switch_ir_optim(True)
         # 关闭feed和fetch OP使用，使用ZeroCopy接口必须设置此项
         config.switch_use_feed_fetch_ops(False)
-        predictor = fluid.core.create_paddle_predictor(config)
-        return predictor
+        return fluid.core.create_paddle_predictor(config)
 
     def preprocess(self, image, thread_pool=None):
         """ 对图像做预处理
@@ -151,7 +144,7 @@ class Predictor:
                 image(list|tuple): 数组中的元素可以是图像路径，也可以是解码后的排列格式为（H，W，C）
                     且类型为float32且为BGR格式的数组。
         """
-        res = dict()
+        res = {}
         if self.model_type == "classifier":
             im = BaseClassifier._preprocess(
                 image,
@@ -256,7 +249,7 @@ class Predictor:
             tensor.copy_from_cpu(v)
         self.predictor.zero_copy_run()
         output_names = self.predictor.get_output_names()
-        output_results = list()
+        output_results = []
         for name in output_names:
             output_tensor = self.predictor.get_output_tensor(name)
             output_tensor_lod = output_tensor.lod()
@@ -307,11 +300,10 @@ class Predictor:
             'im_shape']
         im_info = None if 'im_info' not in preprocessed_input else preprocessed_input[
             'im_info']
-        results = self.postprocess(
+        return self.postprocess(
             model_pred,
             topk=topk,
             batch_size=len(image_list),
             im_shape=im_shape,
-            im_info=im_info)
-
-        return results
+            im_info=im_info,
+        )

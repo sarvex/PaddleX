@@ -38,9 +38,9 @@ class BatchCompose(Transform):
                     samples = op(samples)
                 except Exception as e:
                     stack_info = traceback.format_exc()
-                    logging.warning("fail to map batch transform [{}] "
-                                    "with error: {} and stack:\n{}".format(
-                                        op, e, str(stack_info)))
+                    logging.warning(
+                        f"fail to map batch transform [{op}] with error: {e} and stack:\n{str(stack_info)}"
+                    )
                     raise e
 
         samples = _Permute()(samples)
@@ -56,10 +56,8 @@ class BatchCompose(Transform):
         else:
             batch_data = {}
             for k in samples[0].keys():
-                tmp_data = []
-                for i in range(len(samples)):
-                    tmp_data.append(samples[i][k])
-                if not 'gt_' in k and not 'is_crowd' in k and not 'difficult' in k:
+                tmp_data = [samples[i][k] for i in range(len(samples))]
+                if 'gt_' not in k and 'is_crowd' not in k and 'difficult' not in k:
                     tmp_data = np.stack(tmp_data, axis=0)
                 batch_data[k] = tmp_data
         return batch_data
@@ -86,12 +84,11 @@ class BatchRandomResize(Transform):
 
     def __init__(self, target_sizes, interp='NEAREST'):
         super(BatchRandomResize, self).__init__()
-        if not (interp == "RANDOM" or interp in interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                interp_dict.keys()))
+        if interp != "RANDOM" and interp not in interp_dict:
+            raise ValueError(f"interp should be one of {interp_dict.keys()}")
         self.interp = interp
         assert isinstance(target_sizes, list), \
-            "target_size must be List"
+                "target_size must be List"
         for i, item in enumerate(target_sizes):
             if isinstance(item, int):
                 target_sizes[i] = (item, item)
@@ -127,12 +124,11 @@ class BatchRandomResizeByShort(Transform):
 
     def __init__(self, short_sizes, max_size=-1, interp='NEAREST'):
         super(BatchRandomResizeByShort, self).__init__()
-        if not (interp == "RANDOM" or interp in interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                interp_dict.keys()))
+        if interp != "RANDOM" and interp not in interp_dict:
+            raise ValueError(f"interp should be one of {interp_dict.keys()}")
         self.interp = interp
         assert isinstance(short_sizes, list), \
-            "short_sizes must be List"
+                "short_sizes must be List"
 
         self.short_sizes = short_sizes
         self.max_size = max_size
@@ -193,7 +189,7 @@ class _Gt2YoloTarget(Transform):
 
     def __call__(self, samples, context=None):
         assert len(self.anchor_masks) == len(self.downsample_ratios), \
-            "anchor_masks', and 'downsample_ratios' should have same length."
+                "anchor_masks', and 'downsample_ratios' should have same length."
 
         h, w = samples[0]['image'].shape[:2]
         an_hw = np.array(self.anchors) / np.array([[w, h]])
@@ -277,7 +273,7 @@ class _Gt2YoloTarget(Transform):
 
                                 # classification
                                 target[idx, 5 + cls, gj, gi] = 1.
-                sample['target{}'.format(i)] = target
+                sample[f'target{i}'] = target
 
             # remove useless gt_class and gt_score after target calculated
             sample.pop('gt_class')

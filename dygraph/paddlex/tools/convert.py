@@ -48,5 +48,4 @@ def dataset_conversion(source, to, pics, anns, save_dir):
     elif source.lower() == 'jingling' and to.lower() == 'coco':
         jingling2coco(pics, anns, save_dir)
     else:
-        raise Exception("Converting from {} to {} is not supported.".format(
-            source, to))
+        raise Exception(f"Converting from {source} to {to} is not supported.")

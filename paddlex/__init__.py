@@ -21,9 +21,11 @@ if 'FLAGS_eager_delete_tensor_gb' not in os.environ:
     os.environ['FLAGS_eager_delete_tensor_gb'] = '0.0'
 if 'FLAGS_allocator_strategy' not in os.environ:
     os.environ['FLAGS_allocator_strategy'] = 'auto_growth'
-if "CUDA_VISIBLE_DEVICES" in os.environ:
-    if os.environ["CUDA_VISIBLE_DEVICES"].count("-1") > 0:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+if (
+    "CUDA_VISIBLE_DEVICES" in os.environ
+    and os.environ["CUDA_VISIBLE_DEVICES"].count("-1") > 0
+):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import paddle
 version = paddle.__version__.strip().split('.')
@@ -31,8 +33,8 @@ if version[0] == '1':
     gui_mode = True
     if version[1] != '8':
         raise Exception(
-            'For running paddlex(v{}), Version of paddlepaddle should be greater than 1.8.3'.
-            format(__version__))
+            f'For running paddlex(v{__version__}), Version of paddlepaddle should be greater than 1.8.3'
+        )
     #import paddlehub as hub
     #if hub.__version__.strip().split('.')[0] > '1':
     #    raise Exception("Try to reinstall Paddlehub by 'pip install paddlehub==1.8.2' while paddlepaddle < 2.0")

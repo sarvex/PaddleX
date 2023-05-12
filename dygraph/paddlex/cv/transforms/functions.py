@@ -66,14 +66,13 @@ def rgb2bgr(im):
 
 
 def is_poly(poly):
-    assert isinstance(poly, (list, dict)), \
-        "Invalid poly type: {}".format(type(poly))
+    assert isinstance(poly, (list, dict)), f"Invalid poly type: {type(poly)}"
     return isinstance(poly, list)
 
 
 def horizontal_flip_poly(poly, width):
     flipped_poly = np.array(poly)
-    flipped_poly[0::2] = width - np.array(poly[0::2])
+    flipped_poly[::2] = width - np.array(poly[::2])
     return flipped_poly.tolist()
 
 
@@ -109,7 +108,7 @@ def crop_poly(segm, crop):
     crop_p = np.array(crop_coord).reshape(4, 2)
     crop_p = Polygon(crop_p)
 
-    crop_segm = list()
+    crop_segm = []
     for poly in segm:
         poly = np.array(poly).reshape(len(poly) // 2, 2)
         polygon = Polygon(poly)
@@ -118,7 +117,7 @@ def crop_poly(segm, crop):
             multi_lines = exterior.intersection(exterior)
             polygons = shapely.ops.polygonize(multi_lines)
             polygon = MultiPolygon(polygons)
-        multi_polygon = list()
+        multi_polygon = []
         if isinstance(polygon, MultiPolygon):
             multi_polygon = copy.deepcopy(polygon)
         else:
@@ -133,13 +132,13 @@ def crop_poly(segm, crop):
                         continue
                     part = np.squeeze(
                         np.array(part.exterior.coords[:-1]).reshape(1, -1))
-                    part[0::2] -= xmin
+                    part[::2] -= xmin
                     part[1::2] -= ymin
                     crop_segm.append(part.tolist())
             elif isinstance(inter, Polygon):
                 crop_poly = np.squeeze(
                     np.array(inter.exterior.coords[:-1]).reshape(1, -1))
-                crop_poly[0::2] -= xmin
+                crop_poly[::2] -= xmin
                 crop_poly[1::2] -= ymin
                 crop_segm.append(crop_poly.tolist())
             else:
@@ -159,7 +158,7 @@ def crop_rle(rle, crop, height, width):
 
 def expand_poly(poly, x, y):
     expanded_poly = np.array(poly)
-    expanded_poly[0::2] += x
+    expanded_poly[::2] += x
     expanded_poly[1::2] += y
     return expanded_poly.tolist()
 
@@ -177,7 +176,7 @@ def expand_rle(rle, x, y, height, width, h, w):
 
 def resize_poly(poly, im_scale_x, im_scale_y):
     resized_poly = np.array(poly, dtype=np.float32)
-    resized_poly[0::2] *= im_scale_x
+    resized_poly[::2] *= im_scale_x
     resized_poly[1::2] *= im_scale_y
     return resized_poly.tolist()
 

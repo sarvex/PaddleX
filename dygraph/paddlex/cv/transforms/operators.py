@@ -100,12 +100,12 @@ class Compose(Transform):
         super(Compose, self).__init__()
         if not isinstance(transforms, list):
             raise TypeError(
-                'Type of transforms is invalid. Must be List, but received is {}'
-                .format(type(transforms)))
+                f'Type of transforms is invalid. Must be List, but received is {type(transforms)}'
+            )
         if len(transforms) < 1:
             raise ValueError(
-                'Length of transforms must not be less than 1, but received is {}'
-                .format(len(transforms)))
+                f'Length of transforms must not be less than 1, but received is {len(transforms)}'
+            )
         self.transforms = transforms
         self.decode_image = Decode()
         self.arrange_outputs = None
@@ -155,8 +155,7 @@ class Decode(Transform):
             try:
                 image = self.read_img(im_path)
             except:
-                raise ValueError('Cannot read the image file {}!'.format(
-                    im_path))
+                raise ValueError(f'Cannot read the image file {im_path}!')
         else:
             image = im_path
 
@@ -169,11 +168,11 @@ class Decode(Transform):
         try:
             mask = np.asarray(Image.open(mask))
         except:
-            raise ValueError("Cannot read the mask file {}!".format(mask))
+            raise ValueError(f"Cannot read the mask file {mask}!")
         if len(mask.shape) != 2:
             raise Exception(
-                "Mask should be a 1-channel image, but recevied is a {}-channel image.".
-                format(mask.shape[2]))
+                f"Mask should be a 1-channel image, but recevied is a {mask.shape[2]}-channel image."
+            )
         return mask
 
     def apply(self, sample):
@@ -223,17 +222,14 @@ class Resize(Transform):
 
     def __init__(self, target_size, interp='LINEAR', keep_ratio=False):
         super(Resize, self).__init__()
-        if not (interp == "RANDOM" or interp in interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                interp_dict.keys()))
+        if interp != "RANDOM" and interp not in interp_dict:
+            raise ValueError(f"interp should be one of {interp_dict.keys()}")
         if isinstance(target_size, int):
             target_size = (target_size, target_size)
-        else:
-            if not (isinstance(target_size,
-                               (list, tuple)) and len(target_size) == 2):
-                raise TypeError(
-                    "target_size should be an int or a list of length 2, but received {}".
-                    format(target_size))
+        elif not isinstance(target_size, (list, tuple)) or len(target_size) != 2:
+            raise TypeError(
+                f"target_size should be an int or a list of length 2, but received {target_size}"
+            )
         # (height, width)
         self.target_size = target_size
         self.interp = interp
@@ -333,12 +329,11 @@ class RandomResize(Transform):
 
     def __init__(self, target_sizes, interp='LINEAR'):
         super(RandomResize, self).__init__()
-        if not (interp == "RANDOM" or interp in interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                interp_dict.keys()))
+        if interp != "RANDOM" and interp not in interp_dict:
+            raise ValueError(f"interp should be one of {interp_dict.keys()}")
         self.interp = interp
         assert isinstance(target_sizes, list), \
-            "target_size must be List"
+                "target_size must be List"
         for i, item in enumerate(target_sizes):
             if isinstance(item, int):
                 target_sizes[i] = (item, item)
@@ -368,9 +363,8 @@ class ResizeByShort(Transform):
     """
 
     def __init__(self, short_size=256, max_size=-1, interp='LINEAR'):
-        if not (interp == "RANDOM" or interp in interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                interp_dict.keys()))
+        if interp != "RANDOM" and interp not in interp_dict:
+            raise ValueError(f"interp should be one of {interp_dict.keys()}")
         super(ResizeByShort, self).__init__()
         self.short_size = short_size
         self.max_size = max_size
@@ -412,12 +406,11 @@ class RandomResizeByShort(Transform):
 
     def __init__(self, short_sizes, max_size=-1, interp='LINEAR'):
         super(RandomResizeByShort, self).__init__()
-        if not (interp == "RANDOM" or interp in interp_dict):
-            raise ValueError("interp should be one of {}".format(
-                interp_dict.keys()))
+        if interp != "RANDOM" and interp not in interp_dict:
+            raise ValueError(f"interp should be one of {interp_dict.keys()}")
         self.interp = interp
         assert isinstance(short_sizes, list), \
-            "short_sizes must be List"
+                "short_sizes must be List"
 
         self.short_sizes = short_sizes
         self.max_size = max_size
@@ -578,15 +571,17 @@ class Normalize(Transform):
         super(Normalize, self).__init__()
         from functools import reduce
         if reduce(lambda x, y: x * y, std) == 0:
+            raise ValueError(f'Std should not have 0, but received is {std}')
+        if (
+            is_scale
+            and reduce(
+                lambda x, y: x * y, [a - b for a, b in zip(max_val, min_val)]
+            )
+            == 0
+        ):
             raise ValueError(
-                'Std should not have 0, but received is {}'.format(std))
-        if is_scale:
-            if reduce(lambda x, y: x * y,
-                      [a - b for a, b in zip(max_val, min_val)]) == 0:
-                raise ValueError(
-                    '(max_val - min_val) should not have 0, but received is {}'.
-                    format((np.asarray(max_val) - np.asarray(min_val)).tolist(
-                    )))
+                f'(max_val - min_val) should not have 0, but received is {(np.asarray(max_val) - np.asarray(min_val)).tolist()}'
+            )
 
         self.mean = mean
         self.std = std
@@ -686,7 +681,7 @@ class RandomCrop(Transform):
             for thresh in thresholds:
                 if thresh == 'no_crop':
                     return None
-                for i in range(self.num_attempts):
+                for _ in range(self.num_attempts):
                     crop_box = self._get_crop_box(im_h, im_w)
                     if crop_box is None:
                         continue
@@ -705,7 +700,7 @@ class RandomCrop(Transform):
                     if valid_ids.size > 0:
                         return crop_box, cropped_box, valid_ids
         else:
-            for i in range(self.num_attempts):
+            for _ in range(self.num_attempts):
                 crop_box = self._get_crop_box(im_h, im_w)
                 if crop_box is None:
                     continue
@@ -725,9 +720,10 @@ class RandomCrop(Transform):
             w_scale = np.random.uniform(*self.scaling)
         crop_h = im_h * h_scale
         crop_w = im_w * w_scale
-        if self.aspect_ratio is None:
-            if crop_h / crop_w < 0.5 or crop_h / crop_w > 2.0:
-                return None
+        if self.aspect_ratio is None and (
+            crop_h / crop_w < 0.5 or crop_h / crop_w > 2.0
+        ):
+            return None
         crop_h = int(crop_h)
         crop_w = int(crop_w)
         crop_y = np.random.randint(0, im_h - crop_h)
@@ -796,8 +792,8 @@ class RandomCrop(Transform):
                     im_h,
                     im_w)
                 if [] in crop_polys:
-                    delete_id = list()
-                    valid_polys = list()
+                    delete_id = []
+                    valid_polys = []
                     for idx, poly in enumerate(crop_polys):
                         if not crop_poly:
                             delete_id.append(idx)
@@ -928,11 +924,10 @@ class Padding(Transform):
             size_divisor(int): Image width and height after padding is a multiple of coarsest_stride.
         """
         super(Padding, self).__init__()
-        if isinstance(target_size, (list, tuple)):
-            if len(target_size) != 2:
-                raise ValueError(
-                    '`target_size` should include 2 elements, but it is {}'.
-                    format(target_size))
+        if isinstance(target_size, (list, tuple)) and len(target_size) != 2:
+            raise ValueError(
+                f'`target_size` should include 2 elements, but it is {target_size}'
+            )
         if isinstance(target_size, int):
             target_size = [target_size] * 2
 
@@ -991,9 +986,8 @@ class Padding(Transform):
         if self.target_size:
             h, w = self.target_size
             assert (
-                    im_h <= h and im_w <= w
-            ), 'target size ({}, {}) cannot be less than image size ({}, {})'\
-                .format(h, w, im_h, im_w)
+                im_h <= h and im_w <= w
+            ), f'target size ({h}, {w}) cannot be less than image size ({im_h}, {im_w})'
         else:
             h = (np.ceil(im_h / self.size_divisor) *
                  self.size_divisor).astype(int)
@@ -1034,9 +1028,9 @@ class MixupImage(Transform):
         """
         super(MixupImage, self).__init__()
         if alpha <= 0.0:
-            raise ValueError("alpha should be positive in {}".format(self))
+            raise ValueError(f"alpha should be positive in {self}")
         if beta <= 0.0:
-            raise ValueError("beta should be positive in {}".format(self))
+            raise ValueError(f"beta should be positive in {self}")
         self.alpha = alpha
         self.beta = beta
         self.mixup_epoch = mixup_epoch
@@ -1218,10 +1212,9 @@ class RandomDistort(Transform):
         if not mode:
             sample['image'] = self.apply_contrast(sample['image'])
 
-        if self.shuffle_channel:
-            if np.random.randint(0, 2):
-                sample['image'] = sample['image'][..., np.random.permutation(
-                    3)]
+        if self.shuffle_channel and np.random.randint(0, 2):
+            sample['image'] = sample['image'][..., np.random.permutation(
+                3)]
 
         return sample
 
@@ -1249,14 +1242,12 @@ class RandomBlur(Transform):
             n = 1
         else:
             n = int(1.0 / self.prob)
-        if n > 0:
-            if np.random.randint(0, n) == 0:
-                radius = np.random.randint(3, 10)
-                if radius % 2 != 1:
-                    radius = radius + 1
-                if radius > 9:
-                    radius = 9
-                sample['image'] = self.apply_im(sample['image'], radius)
+        if n > 0 and np.random.randint(0, n) == 0:
+            radius = np.random.randint(3, 10)
+            if radius % 2 != 1:
+                radius = radius + 1
+            radius = min(radius, 9)
+            sample['image'] = self.apply_im(sample['image'], radius)
 
         return sample
 
@@ -1381,10 +1372,7 @@ class ArrangeClassifier(Transform):
 
     def apply(self, sample):
         image = permute(sample['image'], False)
-        if self.mode in ['train', 'eval']:
-            return image, sample['label']
-        else:
-            return image
+        return (image, sample['label']) if self.mode in ['train', 'eval'] else image
 
 
 class ArrangeDetector(Transform):

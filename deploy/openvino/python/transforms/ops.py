@@ -49,7 +49,7 @@ def resize_long(im, long_size=224, interpolation=cv2.INTER_LINEAR):
 
 
 def resize(im, target_size=608, interp=cv2.INTER_LINEAR):
-    if isinstance(target_size, list) or isinstance(target_size, tuple):
+    if isinstance(target_size, (list, tuple)):
         w = target_size[0]
         h = target_size[1]
     else:
